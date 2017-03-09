@@ -1,5 +1,5 @@
 /*
-* Copyright 2016 Teppo Kurki <teppo.kurki@iki.fi>
+* Copyright 2017 Joachim Bakke
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -13,9 +13,9 @@
 * limitations under the License.
 */
 
-//const Influx = require('influx')
+
 const Bacon = require('baconjs')
-const debug = require('debug')('signalk-to-influxdb')
+const debug = require('debug')('signalk-polar')
 const util = require('util')
 const mysql = require('mysql')
 var connection
@@ -120,7 +120,7 @@ module.exports = function(app, options) {
                 //debug("checking...")
                 //debug("tws: " + tws + " awa: " + awa + " stw: " + stw)
 
-                connection.query('SELECT * FROM polar Where wind_speed > ? AND wind_speed < ? AND wind_dir > ? AND wind_dir < ?' ,[(tws - twsInterval), (tws + twsInterval), (awa - awaInterval), (awa + awaInterval)],function(err,rows){
+                connection.query('SELECT * FROM polar Where environmentWindSpeedTrue > ? AND environmentWindSpeedTrue < ? AND environmentWindDirectionTrue > ? AND environmentWindDirectionTrue < ?' ,[(tws - twsInterval), (tws + twsInterval), (awa - awaInterval), (awa + awaInterval)],function(err,rows){
                   if(err) debug(err)
                   if(rows.length <= 0) {
                     debug("no match found, inserting new item")
@@ -128,7 +128,7 @@ module.exports = function(app, options) {
                       tack = "port"
                     }
                     else {tack = "starboard"}
-                    var newLine = { "wind_speed": tws, "wind_dir": awa, "boat_speed": stw, "tack": tack}
+                    var newLine = { "environmentWindSpeedTrue": tws, "environmentWindDirectionTrue": awa, "navigationSpeedThroughWater": stw, "tack": tack}
                     //debug("newline: " + util.inspect(newline))
                     connection.query('INSERT INTO polar SET ?', newLine, function(err,rows){
                       if(err) debug(err)
