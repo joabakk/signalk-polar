@@ -128,7 +128,7 @@ module.exports = function(app, options) {
                       tack = "port"
                     }
                     else {tack = "starboard"}
-                    var newLine = { "environmentWindSpeedTrue": tws, "environmentWindDirectionTrue": awa, "navigationSpeedThroughWater": stw, "tack": tack}
+                    var newLine = { "timestamp": timeMax.toISOString(), "environmentWindSpeedTrue": tws, "environmentWindDirectionTrue": awa, "navigationSpeedThroughWater": stw, "tack": tack}
                     //debug("newline: " + util.inspect(newline))
                     connection.query('INSERT INTO polar SET ?', newLine, function(err,rows){
                       if(err) debug(err)
