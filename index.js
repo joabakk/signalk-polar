@@ -133,7 +133,7 @@ module.exports = function(app, options) {
               if (timediff < maxInterval && engineRunning == false){
                 //debug("checking...")
                 //debug("aws: " + aws + " awa: " + awa + " stw: " + stw)
-                twa = getTrueWindAngle(sog, aws, awa) + cog
+                twa = getTrueWindAngle(sog, aws, awa)// + cog
                 tws = getTrueWindSpeed(sog, aws, awa)
                 vmg = getVelocityMadeGood(stw, tws, aws)//(speed, trueWindSpeed, apparentWindspeed)
 
@@ -342,15 +342,17 @@ stop: function() {
 }
 
 function getTrueWindAngle(speed, trueWindSpeed, apparentWindspeed) { //not working
+  // a2=b2+c2−2bc⋅cos(A) where a is apparent wind speed, b is boat speed and c is true wind speed
   var aSquared = Math.pow(apparentWindspeed,2)
   var bSquared = Math.pow(speed,2)
   var cSquared = Math.pow(trueWindSpeed,2)
-  var acosTo = (aSquared - bSquared - cSquared) / (2 * speed * trueWindSpeed)
+  var toAcos = (aSquared + bSquared - cSquared) / (- 2 * speed * trueWindSpeed)
 
 
-  var calc = Math.acos(acosTo)
-  debug("a^2=" + aSquared + " b^2=" + bSquared + " c^2=" + cSquared + " acosTo=" + acosTo)
-  return 1
+
+  var calc = Math.acos(toAcos)
+  debug("a^2=" + aSquared + " b^2=" + bSquared + " c^2=" + cSquared + " toAcos=" + toAcos)
+  return calc
   /*var apparentX = Math.cos(windAngle) * windSpeed;
   var apparentY = Math.sin(windAngle) * windSpeed;
   return Math.atan2(apparentY, -speed + apparentX);*/
@@ -363,5 +365,5 @@ function getTrueWindSpeed(speed, windSpeed, windAngle) {
 };
 
 function getVelocityMadeGood(speedOverGround, trueWindAngle) {
-  return Math.cos(trueWindAngle) * speedOverGround;
+  return -Math.cos(trueWindAngle) * speedOverGround;
 };
