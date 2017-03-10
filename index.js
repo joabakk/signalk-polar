@@ -20,13 +20,13 @@ const util = require('util')
 const mysql = require('mysql')
 var connection
 
-vmg = rot = stw = awa = tws = eng = {}
+vmg = rot = stw = awa = aws = eng = {}
 var engineRunning = true
 var engineSKPath = ""
-var twsInterval = 0.1 //Wind speed +-0.1 m/s
+var awsInterval = 0.1 //Wind speed +-0.1 m/s
 var awaInterval = 0.0174533 //Wind angle +-1 degree
 
-vmgTimeSeconds = rotTimeSeconds = stwTimeSeconds = awaTimeSeconds = twsTimeSeconds = engTimeSeconds = 0
+vmgTimeSeconds = rotTimeSeconds = stwTimeSeconds = awaTimeSeconds = awsTimeSeconds = engTimeSeconds = cogTimeSeconds = 0
 
 const items = [
   "performance.velocityMadeGood", // if empty, populate from this plugin
@@ -34,6 +34,8 @@ const items = [
   "navigation.speedThroughWater",
   "environment.wind.angleApparent",
   "environment.wind.speedApparent",
+  "navigation.courseOverGroundTrue",
+  "navigation.speedOverGround"
 ]
 const maxInterval = 2 //max interval between updates for all items to avoid updating on stale data
 
@@ -77,10 +79,22 @@ module.exports = function(app, options) {
                   debug("awa: " + awa + " " + awaTimeSeconds)
                 }
                 if (pathValue.path == "environment.wind.speedApparent"){
-                  var twsTime = new Date(update.timestamp)
-                  twsTimeSeconds = twsTime.getTime() / 1000
-                  tws = pathValue.value
-                  debug("tws: " + tws + " " + twsTimeSeconds)
+                  var awsTime = new Date(update.timestamp)
+                  awsTimeSeconds = awsTime.getTime() / 1000
+                  aws = pathValue.value
+                  debug("aws: " + aws + " " + awsTimeSeconds)
+                }
+                if (pathValue.path == "navigation.courseOverGroundTrue"){
+                  var cogTime = new Date(update.timestamp)
+                  cogTimeSeconds = cogTime.getTime() / 1000
+                  cog = pathValue.value
+                  debug("cog: " + cog + " " + cogTimeSeconds)
+                }
+                if (pathValue.path == "navigation.speedOverGround"){
+                  var sogTime = new Date(update.timestamp)
+                  sogTimeSeconds = sogTime.getTime() / 1000
+                  sog = pathValue.value
+                  debug("sog: " + sog + " " + sogTimeSeconds)
                 }
                 if (engineSKPath != "AlwaysOff"){
                   if (pathValue.path == engineSKPath){
@@ -95,8 +109,8 @@ module.exports = function(app, options) {
                 }
                 //debug("times: " + rotTimeSeconds + " " + stwTimeSeconds + " " + awaTimeSeconds + " " + engTimeSeconds)
                 //debug("rot: " +rot + " stw: " + stw + " awa: " + awa+ " eng: " + eng)
-                timeMax = Math.max(/*rotTimeSeconds,*/ stwTimeSeconds, awaTimeSeconds, twsTimeSeconds)
-                timeMin = Math.min(/*rotTimeSeconds,*/ stwTimeSeconds, awaTimeSeconds, twsTimeSeconds)
+                timeMax = Math.max(/*rotTimeSeconds,*/ stwTimeSeconds, awaTimeSeconds, awsTimeSeconds, cogTimeSeconds)
+                timeMin = Math.min(/*rotTimeSeconds,*/ stwTimeSeconds, awaTimeSeconds, awsTimeSeconds, cogTimeSeconds)
                 timediff = timeMax - timeMin
                 //debug("time diff " + timediff)
 
@@ -118,9 +132,12 @@ module.exports = function(app, options) {
               }
               if (timediff < maxInterval && engineRunning == false){
                 //debug("checking...")
-                //debug("tws: " + tws + " awa: " + awa + " stw: " + stw)
+                //debug("aws: " + aws + " awa: " + awa + " stw: " + stw)
+                twa = getTrueWindAngle(sog, aws, awa) + cog
+                tws = getTrueWindSpeed(sog, aws, awa)
+                vmg = getVelocityMadeGood(stw, tws, aws)//(speed, trueWindSpeed, apparentWindspeed)
 
-                connection.query('SELECT * FROM polar Where environmentWindSpeedTrue > ? AND environmentWindSpeedTrue < ? AND environmentWindDirectionTrue > ? AND environmentWindDirectionTrue < ?' ,[(tws - twsInterval), (tws + twsInterval), (awa - awaInterval), (awa + awaInterval)],function(err,rows){
+                connection.query('SELECT * FROM polar Where environmentWindSpeedTrue > ? AND environmentWindSpeedTrue < ? AND environmentWindAngleTrueGround > ? AND environmentWindAngleTrueGround < ?' ,[(aws - awsInterval), (aws + awsInterval), (awa - awaInterval), (awa + awaInterval)],function(err,rows){
                   if(err) debug(err)
                   if(rows.length <= 0) {
                     debug("no match found, inserting new item")
@@ -128,7 +145,7 @@ module.exports = function(app, options) {
                       tack = "port"
                     }
                     else {tack = "starboard"}
-                    var newLine = { "timestamp": timeMax.toISOString(), "environmentWindSpeedTrue": tws, "environmentWindDirectionTrue": awa, "navigationSpeedThroughWater": stw, "tack": tack}
+                    var newLine = { "timestamp": new Date(timeMax*1000).toISOString(), "environmentWindSpeedApparent": aws, "environmentWindSpeedTrue": tws, "environmentWindAngleApparent": awa, "environmentWindAngleTrueGround": twa, "navigationSpeedThroughWater": stw, "performanceVelocityMadeGood": vmg, "tack": tack}
                     //debug("newline: " + util.inspect(newline))
                     connection.query('INSERT INTO polar SET ?', newLine, function(err,rows){
                       if(err) debug(err)
@@ -144,7 +161,7 @@ module.exports = function(app, options) {
                 });
 
                 // INSERT INTO posts SET `id` = 1, `title` = 'Hello MySQL'
-                /*connection.query(("""SELECT MAX(boat_speed) AS polarbs WHERE `wind_speed` > %s AND `wind_speed` < %s AND `wind_dir` > %s AND `wind_dir` < %s""" % ((tws - twsInterval), tws, (wind_dir - winddirminus), (wind_dir + winddirplus))), function (error, results, fields)) {
+                /*connection.query(("""SELECT MAX(boat_speed) AS polarbs WHERE `wind_speed` > %s AND `wind_speed` < %s AND `wind_dir` > %s AND `wind_dir` < %s""" % ((aws - awsInterval), aws, (wind_dir - winddirminus), (wind_dir + winddirplus))), function (error, results, fields)) {
                 if (error) throw error;
                 debug('The solution is: ', results[0].polarbs);
               });*/
@@ -281,7 +298,7 @@ return {
     const awa = awaDeg / 180 * Math.PI
     return [
       {
-        measurement: 'environmentWindDirectionTrue',
+        measurement: 'environmentWindDAngleTrueGround',
         fields: {
           value: getTrueWindAngle(sog, aws, awa) + cog
         }
@@ -324,14 +341,27 @@ stop: function() {
 }
 }
 
-function getTrueWindAngle(speed, windSpeed, windAngle) {
-  var apparentX = Math.cos(windAngle) * windSpeed;
+function getTrueWindAngle(speed, trueWindSpeed, apparentWindspeed) { //not working
+  var aSquared = Math.pow(apparentWindspeed,2)
+  var bSquared = Math.pow(speed,2)
+  var cSquared = Math.pow(trueWindSpeed,2)
+  var acosTo = (aSquared - bSquared - cSquared) / (2 * speed * trueWindSpeed)
+
+
+  var calc = Math.acos(acosTo)
+  debug("a^2=" + aSquared + " b^2=" + bSquared + " c^2=" + cSquared + " acosTo=" + acosTo)
+  return 1
+  /*var apparentX = Math.cos(windAngle) * windSpeed;
   var apparentY = Math.sin(windAngle) * windSpeed;
-  return Math.atan2(apparentY, -speed + apparentX);
+  return Math.atan2(apparentY, -speed + apparentX);*/
 };
 
 function getTrueWindSpeed(speed, windSpeed, windAngle) {
   var apparentX = Math.cos(windAngle) * windSpeed;
   var apparentY = Math.sin(windAngle) * windSpeed;
   return Math.sqrt(Math.pow(apparentY, 2) + Math.pow(-speed + apparentX, 2));
+};
+
+function getVelocityMadeGood(speedOverGround, trueWindAngle) {
+  return Math.cos(trueWindAngle) * speedOverGround;
 };
