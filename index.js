@@ -116,25 +116,21 @@ module.exports = function(app, options) {
 
                 if (engineSKPath == "AlwaysOff"){
                   engineRunning = false
-                  //debug("1")
                 }
                 else if ((engineSKPath.indexOf(".state") > -1) && (eng != '[object Object]' && eng != 'started') || (timeMax - engTimeSeconds) > 10){ //state != 'started' or very old engine state data
                 engineRunning = false
-                //debug("2")
               }
               else if ((engineSKPath.indexOf(".revolutions") > -1 ) && (eng <= 1  || (timeMax - engTimeSeconds) > 10)){ //RPM = 0 or very old RPM data
                 engineRunning = false
-                //debug("3")
               }
               else {
                 engineRunning = true
-                //debug("else")
               }
               if (timediff < maxInterval && engineRunning == false){
                 //debug("checking...")
                 //debug("aws: " + aws + " awa: " + awa + " stw: " + stw)
-                twa = getTrueWindAngle(sog, aws, awa) //not + cog as we want true relative to boat
                 tws = getTrueWindSpeed(sog, aws, awa)
+                twa = getTrueWindAngle(sog, tws, aws) // getTrueWindAngle(speed, trueWindSpeed, apparentWindspeed)not + cog as we want true relative to boat
                 vmg = getVelocityMadeGood(stw, tws, aws)//(speed, trueWindSpeed, apparentWindspeed)
 
                 connection.query('SELECT * FROM polar Where environmentWindSpeedTrue > ? AND environmentWindSpeedTrue < ? AND environmentWindAngleTrueGround > ? AND environmentWindAngleTrueGround < ?' ,[(aws - awsInterval), (aws + awsInterval), (awa - awaInterval), (awa + awaInterval)],function(err,rows){
@@ -149,24 +145,17 @@ module.exports = function(app, options) {
                     //debug("newline: " + util.inspect(newline))
                     connection.query('INSERT INTO polar SET ?', newLine, function(err,rows){
                       if(err) debug(err)
-                  })
-                }
+                    })
+                  }
                   else {
                     debug('Data received from Db')
                     for (var i = 0; i < rows.length; i++) {
                       //debug(rows[i].name)
+                    }
+                    //debug(rows)
                   }
-                  //debug(rows)
-                }
                 });
-
-                // INSERT INTO posts SET `id` = 1, `title` = 'Hello MySQL'
-                /*connection.query(("""SELECT MAX(boat_speed) AS polarbs WHERE `wind_speed` > %s AND `wind_speed` < %s AND `wind_dir` > %s AND `wind_dir` < %s""" % ((aws - awsInterval), aws, (wind_dir - winddirminus), (wind_dir + winddirplus))), function (error, results, fields)) {
-                if (error) throw error;
-                debug('The solution is: ', results[0].polarbs);
-              });*/
             }
-            //if timediff < 2s and engine AlwaysOff, old update or (0 or !='started')
 
             acc.push({
               measurement: pathValue.path,
@@ -341,21 +330,28 @@ stop: function() {
 }
 }
 
-function getTrueWindAngle(speed, trueWindSpeed, apparentWindspeed) { //not working
-  // a2=b2+c2−2bc⋅cos(A) where a is apparent wind speed, b is boat speed and c is true wind speed
+function getTrueWindAngle(speed, trueWindSpeed, apparentWindspeed) {
+  //cosine rule
+  // a2=b2+c2−2bc⋅cos(A) where
+  //a is apparent wind speed,
+  //b is boat speed and
+  //c is true wind speed
+
   var aSquared = Math.pow(apparentWindspeed,2)
-  var bSquared = Math.pow(speed,2)
-  var cSquared = Math.pow(trueWindSpeed,2)
-  var toAcos =  (aSquared + bSquared - cSquared) / (- 2 * speed * trueWindSpeed)
+  var cSquared = Math.pow(speed,2)
+  var bSquared = Math.pow(trueWindSpeed,2)
+  var cosA =  (aSquared - bSquared - cSquared) / (- 2 * speed * trueWindSpeed)
 
-
-
-  var calc = - Math.acos(toAcos)
-  debug("a^2=" + aSquared + " b^2=" + bSquared + " c^2=" + cSquared + " toAcos=" + toAcos)
-  return calc
-  /*var apparentX = Math.cos(windAngle) * windSpeed;
-  var apparentY = Math.sin(windAngle) * windSpeed;
-  return Math.atan2(apparentY, -speed + apparentX);*/
+  if (cosA > 1 || cosA < -1){
+    debug("outside range")
+    debug("a^2=" + aSquared + " b^2=" + bSquared + " c^2=" + cSquared + " cosA=" + cosA)
+    debug("tws:" + trueWindSpeed + " aws:" + apparentWindspeed + " boatspeed:" + speed)
+    return null
+  }
+  else {
+    var calc = Math.acos(cosA)
+    return calc
+  }
 };
 
 function getTrueWindSpeed(speed, windSpeed, windAngle) {
