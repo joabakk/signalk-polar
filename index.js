@@ -133,7 +133,7 @@ module.exports = function(app, options) {
               if (timediff < maxInterval && engineRunning == false){
                 //debug("checking...")
                 //debug("aws: " + aws + " awa: " + awa + " stw: " + stw)
-                twa = getTrueWindAngle(sog, aws, awa)// + cog
+                twa = getTrueWindAngle(sog, aws, awa) //not + cog as we want true relative to boat
                 tws = getTrueWindSpeed(sog, aws, awa)
                 vmg = getVelocityMadeGood(stw, tws, aws)//(speed, trueWindSpeed, apparentWindspeed)
 
@@ -365,5 +365,5 @@ function getTrueWindSpeed(speed, windSpeed, windAngle) {
 };
 
 function getVelocityMadeGood(speedOverGround, trueWindAngle) {
-  return -Math.cos(trueWindAngle) * speedOverGround;
+  return -Math.sin(trueWindAngle) * speedOverGround;
 };
