@@ -1,14 +1,12 @@
 {
 	"name": "signalk-polar",
 	"version": "0.0.1",
-	"description": "Signal K server plugin to store and retrieve polar data from mySQL database",
+	"description": "Signal K server plugin to store and retrieve polar data with mySQL db",
 	"keywords": [
 		"signalk-node-server-plugin"
 	],
 	"license": "ISC",
-	"author": {
-		"name": "Joachim Bakke"
-	},
+	"author": "Joachim Bakke",
 	"main": "index.js",
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1"
@@ -16,11 +14,6 @@
 	"dependencies": {
 		"baconjs": "^0.7.88",
 		"debug": "^2.2.0",
-		"influx": "^5.0.0",
-		"mysql": "^2.13.0",
-    "request": "^2.34"
-	},
-	"devDependencies": {},
-	"optionalDependencies": {},
-	"readme": "# Signal K to InfluxDb PluginSignal K Node server plugin to write all simple numeric Signal K values to [InfluxDB](https://www.influxdata.com/time-series-platform/influxdb/), a time series database.Once the data is in InfluxDb you can use for example [Grafana](http://grafana.org/) to draw pretty graphs of your data.The plugin assumes that the database you specify exists. You can create one with`curl -X POST http://localhost:8086/query?q=CREATE+DATABASE+boatdata`The plugin writes only `self` data. It converts Signal K paths to InfluxDb `measurement` keys in CamelCase format, eg. `navigationPosition`.Adding support for non-self data would be pretty easy by adding context as InfluxDB tags.If you want to try this out I suggest you try [InfluxCloud](https://cloud.influxdata.com/) (have not tried yet myself) or run InfluxDb locally with Docker by using [ready made Dockerfiles](https://github.com/tutumcloud/influxdb).Compatible with InfluxDB 1.x.",
+		"influx": "^5.0.0"
+	}
 }
