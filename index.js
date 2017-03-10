@@ -346,11 +346,11 @@ function getTrueWindAngle(speed, trueWindSpeed, apparentWindspeed) { //not worki
   var aSquared = Math.pow(apparentWindspeed,2)
   var bSquared = Math.pow(speed,2)
   var cSquared = Math.pow(trueWindSpeed,2)
-  var toAcos = (aSquared + bSquared - cSquared) / (- 2 * speed * trueWindSpeed)
+  var toAcos =  (aSquared + bSquared - cSquared) / (- 2 * speed * trueWindSpeed)
 
 
 
-  var calc = Math.acos(toAcos)
+  var calc = - Math.acos(toAcos)
   debug("a^2=" + aSquared + " b^2=" + bSquared + " c^2=" + cSquared + " toAcos=" + toAcos)
   return calc
   /*var apparentX = Math.cos(windAngle) * windSpeed;
