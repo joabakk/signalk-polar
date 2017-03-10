@@ -56,7 +56,7 @@ module.exports = function(app, options) {
 
 
               if ( storeIt ) {
-                
+
                 debug(update.timestamp + " " + pathValue.path + " " + pathValue.value)
                 if (pathValue.path == "navigation.rateOfTurn"){
                   var rotTime = new Date(update.timestamp)
@@ -175,9 +175,9 @@ module.exports = function(app, options) {
 }
 
 return {
-  id: "signalk-to-influxdb",
-  name: "InfluxDb writer",
-  description: "Signal K server plugin that writes self values to InfluxDb",
+  id: "signalk-polar",
+  name: "Polar storage and retrieval",
+  description: "Signal K server plugin that stores and retrieves polar data from mySQL database",
 
   schema: {
     type: "object",

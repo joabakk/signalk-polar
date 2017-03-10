@@ -1,81 +1,26 @@
 {
-  "_args": [
-    [
-      {
-        "raw": "https://github.com/tkurki/signalk-to-influxdb",
-        "scope": null,
-        "escapedName": null,
-        "name": null,
-        "rawSpec": "https://github.com/tkurki/signalk-to-influxdb",
-        "spec": "git+https://github.com/tkurki/signalk-to-influxdb.git",
-        "type": "hosted",
-        "hosted": {
-          "type": "github",
-          "ssh": "git@github.com:tkurki/signalk-to-influxdb.git",
-          "sshUrl": "git+ssh://git@github.com/tkurki/signalk-to-influxdb.git",
-          "httpsUrl": "git+https://github.com/tkurki/signalk-to-influxdb.git",
-          "gitUrl": "git://github.com/tkurki/signalk-to-influxdb.git",
-          "shortcut": "github:tkurki/signalk-to-influxdb",
-          "directUrl": "https://raw.githubusercontent.com/tkurki/signalk-to-influxdb/master/package.json"
-        }
-      },
-      "/Users/joachim/Downloads/signalk-server-node"
-    ]
-  ],
-  "_from": "git+https://github.com/tkurki/signalk-to-influxdb.git",
-  "_id": "signalk-to-influxdb@0.0.1",
-  "_inCache": true,
-  "_location": "/signalk-to-influxdb",
-  "_phantomChildren": {},
-  "_requested": {
-    "raw": "https://github.com/tkurki/signalk-to-influxdb",
-    "scope": null,
-    "escapedName": null,
-    "name": null,
-    "rawSpec": "https://github.com/tkurki/signalk-to-influxdb",
-    "spec": "git+https://github.com/tkurki/signalk-to-influxdb.git",
-    "type": "hosted",
-    "hosted": {
-      "type": "github",
-      "ssh": "git@github.com:tkurki/signalk-to-influxdb.git",
-      "sshUrl": "git+ssh://git@github.com/tkurki/signalk-to-influxdb.git",
-      "httpsUrl": "git+https://github.com/tkurki/signalk-to-influxdb.git",
-      "gitUrl": "git://github.com/tkurki/signalk-to-influxdb.git",
-      "shortcut": "github:tkurki/signalk-to-influxdb",
-      "directUrl": "https://raw.githubusercontent.com/tkurki/signalk-to-influxdb/master/package.json"
-    }
-  },
-  "_requiredBy": [
-    "#USER"
-  ],
-  "_resolved": "git+https://github.com/tkurki/signalk-to-influxdb.git#cb0bb9f8b027ea6a86e4a7ca904fe769a73c41ce",
-  "_shasum": "3bab6dd57421dc944459388fa41bbe586e443d17",
-  "_shrinkwrap": null,
-  "_spec": "https://github.com/tkurki/signalk-to-influxdb",
-  "_where": "/Users/joachim/Downloads/signalk-server-node",
-  "author": {
-    "name": "teppo.kurki@iki,fi"
-  },
-  "dependencies": {
-    "baconjs": "^0.7.88",
-    "debug": "^2.2.0",
-    "influx": "^5.0.0",
-    "mysql": "^2.13.0"
-  },
-  "description": "Signal K server plugin to send all simple valuess to InfluxDb",
-  "devDependencies": {},
-  "gitHead": "cb0bb9f8b027ea6a86e4a7ca904fe769a73c41ce",
-  "keywords": [
-    "signalk-node-server-plugin"
-  ],
-  "license": "ISC",
-  "main": "index.js",
-  "name": "signalk-to-influxdb",
-  "optionalDependencies": {},
-  "readme": "# Signal K to InfluxDb Plugin\nSignal K Node server plugin to write all simple numeric Signal K values to [InfluxDB](https://www.influxdata.com/time-series-platform/influxdb/), a time series database.\n\nOnce the data is in InfluxDb you can use for example [Grafana](http://grafana.org/) to draw pretty graphs of your data.\n\nThe plugin assumes that the database you specify exists. You can create one with\n\n`curl -X POST http://localhost:8086/query?q=CREATE+DATABASE+boatdata`\n\nThe plugin writes only `self` data. It converts Signal K paths to InfluxDb `measurement` keys in CamelCase format, eg. `navigationPosition`.\n\nAdding support for non-self data would be pretty easy by adding context as InfluxDB tags.\n\nIf you want to try this out I suggest you try [InfluxCloud](https://cloud.influxdata.com/) (have not tried yet myself) or run InfluxDb locally with Docker by using [ready made Dockerfiles](https://github.com/tutumcloud/influxdb).\n\nCompatible with InfluxDB 1.x.\n",
-  "readmeFilename": "README.md",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "version": "0.0.1"
+	"name": "signalk-polar",
+	"version": "0.0.1",
+	"description": "Signal K server plugin to store and retrieve polar data from mySQL database",
+	"keywords": [
+		"signalk-node-server-plugin"
+	],
+	"license": "ISC",
+	"author": {
+		"name": "Joachim Bakke"
+	},
+	"main": "index.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"dependencies": {
+		"baconjs": "^0.7.88",
+		"debug": "^2.2.0",
+		"influx": "^5.0.0",
+		"mysql": "^2.13.0",
+    "request": "^2.34"
+	},
+	"devDependencies": {},
+	"optionalDependencies": {},
+	"readme": "# Signal K to InfluxDb PluginSignal K Node server plugin to write all simple numeric Signal K values to [InfluxDB](https://www.influxdata.com/time-series-platform/influxdb/), a time series database.Once the data is in InfluxDb you can use for example [Grafana](http://grafana.org/) to draw pretty graphs of your data.The plugin assumes that the database you specify exists. You can create one with`curl -X POST http://localhost:8086/query?q=CREATE+DATABASE+boatdata`The plugin writes only `self` data. It converts Signal K paths to InfluxDb `measurement` keys in CamelCase format, eg. `navigationPosition`.Adding support for non-self data would be pretty easy by adding context as InfluxDB tags.If you want to try this out I suggest you try [InfluxCloud](https://cloud.influxdata.com/) (have not tried yet myself) or run InfluxDb locally with Docker by using [ready made Dockerfiles](https://github.com/tutumcloud/influxdb).Compatible with InfluxDB 1.x.",
 }
