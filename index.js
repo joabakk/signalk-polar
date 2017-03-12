@@ -23,8 +23,8 @@ var connection
 vmg = rot = stw = awa = aws = eng = {}
 var engineRunning = true
 var engineSKPath = ""
-var awsInterval = 0.1 //Wind speed +-0.1 m/s
-var awaInterval = 0.0174533 //Wind angle +-1 degree
+var twsInterval = 0.1 //Wind speed +-0.1 m/s
+var twaInterval = 0.0174533 //Wind angle +-1 degree
 
 vmgTimeSeconds = rotTimeSeconds = stwTimeSeconds = awaTimeSeconds = awsTimeSeconds = engTimeSeconds = cogTimeSeconds = 0
 
@@ -128,12 +128,12 @@ module.exports = function(app, options) {
               }
               if (timediff < maxInterval && engineRunning == false){
                 //debug("checking...")
-                //debug("aws: " + aws + " awa: " + awa + " stw: " + stw)
+                debug("aws: " + aws + " awa: " + awa + " stw: " + stw)
                 tws = getTrueWindSpeed(sog, aws, awa)
-                twa = getTrueWindAngle(sog, tws, aws) // getTrueWindAngle(speed, trueWindSpeed, apparentWindspeed)not + cog as we want true relative to boat
-                vmg = getVelocityMadeGood(stw, tws, aws)//(speed, trueWindSpeed, apparentWindspeed)
+                twa = getTrueWindAngle(sog, tws, aws, awa)
+                vmg = getVelocityMadeGood(sog, twa)
 
-                connection.query('SELECT * FROM polar Where environmentWindSpeedTrue > ? AND environmentWindSpeedTrue < ? AND environmentWindAngleTrueGround > ? AND environmentWindAngleTrueGround < ?' ,[(aws - awsInterval), (aws + awsInterval), (awa - awaInterval), (awa + awaInterval)],function(err,rows){
+                connection.query('SELECT * FROM polar Where environmentWindSpeedTrue > ? AND environmentWindSpeedTrue < ? AND environmentWindAngleTrueGround > ? AND environmentWindAngleTrueGround < ?' ,[(tws - twsInterval), (tws + twsInterval), (twa - twaInterval), (twa + twaInterval)],function(err,rows){
                   if(err) debug(err)
                   if(rows.length <= 0) {
                     debug("no match found, inserting new item")
@@ -154,29 +154,22 @@ module.exports = function(app, options) {
                     }
                     //debug(rows)
                   }
-                });
-            }
-
-            acc.push({
-              measurement: pathValue.path,
-              fields: {
-                value: pathValue.value
+                })
               }
-            })
+
+              acc.push({
+                measurement: pathValue.path,
+                fields: {
+                  value: pathValue.value
+                }
+              })
+            }
           }
-        }
-        return acc
-      }, [])
-      if(points.length > 0) {
-        /*client.writePoints(points, function(err, response) {
-        if(err) {
-        console.error(err)
-        console.error(response)
-      }
-    })*/
-  }
-}
-})
+          return acc
+        }, []
+      )
+    }
+  })
 }
 }
 
@@ -245,92 +238,52 @@ return {
       debug('connected to mysql as id ' + connection.threadId );
     });
     debug("started")
-    /*client = new Influx.InfluxDB({
-    host: 'localhost',
-    port: 8086, // optional, default 8086
-    protocol: 'http', // optional, default 'http'
-    database: options.database
-  })*/
 
 
 
 
-  var obj = {}
-  if (options.engine == 'propulsion.*.revolutions'){
-    items.push(options.engine.replace(/\*/g, options.additional_info))
-    engineSKPath = options.engine.replace(/\*/g, options.additional_info)
-  }
-  else if (options.engine == 'propulsion.*.state'){
-    items.push(options.engine.replace(/\*/g, options.additional_info))
-    engineSKPath = options.engine.replace(/\*/g, options.additional_info)
-  }
-  else if (options.engine == "AlwaysOff"){
-    engineSKPath = "AlwaysOff"
-  }
-  debug("listening for " + util.inspect(items))
-  debug("engineSKPath: " + engineSKPath)
-  items.forEach(element => {
-    obj[element] = true
-  })
+    var obj = {}
+    if (options.engine == 'propulsion.*.revolutions'){
+      items.push(options.engine.replace(/\*/g, options.additional_info))
+      engineSKPath = options.engine.replace(/\*/g, options.additional_info)
+    }
+    else if (options.engine == 'propulsion.*.state'){
+      items.push(options.engine.replace(/\*/g, options.additional_info))
+      engineSKPath = options.engine.replace(/\*/g, options.additional_info)
+    }
+    else if (options.engine == "AlwaysOff"){
+      engineSKPath = "AlwaysOff"
+    }
+    debug("listening for " + util.inspect(items))
+    debug("engineSKPath: " + engineSKPath)
+    items.forEach(element => {
+      obj[element] = true
+    })
 
-  shouldStore = function(path) {
-    return typeof obj[path] != 'undefined'
-  }
+    shouldStore = function(path) {
+      return typeof obj[path] != 'undefined'
+    }
+
+    app.signalk.on('delta', handleDelta)
 
 
-
-
-  app.signalk.on('delta', handleDelta)
-
-  unsubscribes.push(Bacon.combineWith(function(awaDeg, aws, sog, cogDeg) {
-    const cog = cogDeg / 180 * Math.PI
-    const awa = awaDeg / 180 * Math.PI
-    return [
-      {
-        measurement: 'environmentWindDAngleTrueGround',
-        fields: {
-          value: getTrueWindAngle(sog, aws, awa) + cog
-        }
-      }, {
-        measurement: 'environmentWindSpeedTrue',
-        fields: {
-          value: getTrueWindSpeed(sog, aws, awa)
-        }
+  },
+  stop: function() {
+    unsubscribes.forEach(f => f())
+    items.length = items.length - 1
+    engineSKPath = ""
+    connection.end(function(err) {
+      if (err) {
+        debug('error disconnecting: ' + err.stack);
+        return;
       }
-    ]
-  }, [
-    'environment.wind.angleApparent',
-    'environment.wind.speedApparent',
-    'navigation.speedOverGround',
-    'navigation.courseOverGroundTrue']
-    .map(app.streambundle.getSelfStream, app.streambundle))
-    .changes()
-    .debounceImmediate(200)
-    .onValue(points => {
-      /*client.writePoints(points, function(err, response) {
-      if(err) {
-      console.error(err)
-      console.error(response)
-    }
-  })*/
-}))
-},
-stop: function() {
-  unsubscribes.forEach(f => f())
-  items.length = items.length - 1
-  engineSKPath = ""
-  connection.end(function(err) {
-    if (err) {
-      debug('error disconnecting: ' + err.stack);
-      return;
-    }
-  });
-  app.signalk.removeListener('delta', handleDelta)
-}
+    });
+    app.signalk.removeListener('delta', handleDelta)
+  }
 }
 }
 
-function getTrueWindAngle(speed, trueWindSpeed, apparentWindspeed) {
+function getTrueWindAngle(speed, trueWindSpeed, apparentWindspeed, windAngle) {
   //cosine rule
   // a2=b2+c2−2bc⋅cos(A) where
   //a is apparent wind speed,
@@ -338,18 +291,21 @@ function getTrueWindAngle(speed, trueWindSpeed, apparentWindspeed) {
   //c is true wind speed
 
   var aSquared = Math.pow(apparentWindspeed,2)
-  var cSquared = Math.pow(speed,2)
   var bSquared = Math.pow(trueWindSpeed,2)
-  var cosA =  (aSquared - bSquared - cSquared) / (- 2 * speed * trueWindSpeed)
+  var cSquared = Math.pow(speed,2)
+  var cosA =  (aSquared - bSquared - cSquared) / (2 * trueWindSpeed * speed)
 
   if (cosA > 1 || cosA < -1){
-    debug("outside range")
-    debug("a^2=" + aSquared + " b^2=" + bSquared + " c^2=" + cSquared + " cosA=" + cosA)
-    debug("tws:" + trueWindSpeed + " aws:" + apparentWindspeed + " boatspeed:" + speed)
+    debug("invalid triangle")
     return null
   }
   else {
-    var calc = Math.acos(cosA)
+    if (windAngle > 0 && windAngle < Math.PI){ //Starboard
+      var calc = Math.acos(cosA)
+    } else if (windAngle < 0 && windAngle > -Math.PI){ //Port
+      var calc = -Math.acos(cosA)
+    }
+    debug("calc trueWindAngle: " + calc)
     return calc
   }
 };
@@ -360,6 +316,6 @@ function getTrueWindSpeed(speed, windSpeed, windAngle) {
   return Math.sqrt(Math.pow(apparentY, 2) + Math.pow(-speed + apparentX, 2));
 };
 
-function getVelocityMadeGood(speedOverGround, trueWindAngle) {
-  return -Math.sin(trueWindAngle) * speedOverGround;
+function getVelocityMadeGood(speed, trueWindAngle) {
+  return Math.cos(trueWindAngle) * speed;
 };
