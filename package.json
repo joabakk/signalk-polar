@@ -13,7 +13,7 @@
 	},
 	"dependencies": {
 		"baconjs": "^0.7.88",
-		"debug": "^2.6.2",
+		"debug": "^2.6.3",
 		"influx": "^5.0.0"
 	}
 }
