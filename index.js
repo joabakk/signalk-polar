@@ -17,6 +17,7 @@
 const Bacon = require('baconjs')
 const debug = require('debug')('signalk-polar')
 const util = require('util')
+var express = require("express")
 const mysql = require('mysql')
 var connection
 
@@ -267,6 +268,40 @@ return {
     app.signalk.on('delta', handleDelta)
 
 
+  },
+  registerWithRouter: function(router) {
+    // respond with "hello world" when a GET request is made to the homepage
+    router.get('/windspeed/:windSpeed/interval/:windInterval', (req, res) => {
+      debug("correct url")
+      res.contentType('application/json')
+      debug(util.inspect(req.params))
+      var windspeed = req.params.windSpeed
+    , interval = req.params.windInterval;
+      //json = {test:23}
+      connection.query({
+        sql: 'SELECT `environmentWindAngleTrueGround`, MAX(`navigationSpeedThroughWater`) AS `max` FROM `polar` WHERE `environmentWindSpeedTrue` < ? AND  `environmentWindSpeedTrue` > ? GROUP BY `environmentWindAngleTrueGround`',
+        //"SELECT `wind_dir` , MAX(  `boat_speed` ) FROM  `polar_design` WHERE `wind_speed` >1 AND  `wind_speed` <10 GROUP BY `wind_dir`"
+        timeout: 4000, // 4s
+        values: [windspeed, windspeed - interval]
+      }, function (error, results, fields) {
+        // error will be an Error if one occurred during the query
+        debug("error: " + error)
+        // results will contain the results of the query
+        //debug('The solution is: ', results[0])
+        //var json=[""]
+        for (var i = 0; i < results.length; i++) {
+          debug(results[i].environmentWindAngleTrueGround,results[i].max);
+          //json.push("[results[i].environmentWindAngleTrueGround], [results[i].max]")
+        };
+
+        json = JSON.stringify(results)
+        //debug(util.inspect(results))
+        //debug('result: ' + json)
+        // fields will contain information about the returned results fields (if any)
+        //debug(util.inspect(fields))
+      });
+      res.send(json) //scope issues
+    })
   },
   stop: function() {
     unsubscribes.forEach(f => f())
