@@ -15,5 +15,12 @@
 		"baconjs": "^0.7.88",
 		"debug": "^2.6.2",
 		"influx": "^5.0.0"
-	}
+	},
+	"devDependencies": {
+    "chai": "^3.4.1",
+    "chai-things": "^0.2.0",
+    "debug": "^2.2.0",
+    "mocha": "^2.3.4",
+    "signalk-schema": "0.0.1-0"
+  }
 }
