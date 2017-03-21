@@ -21,6 +21,6 @@
     "chai-things": "^0.2.0",
     "debug": "^2.2.0",
     "mocha": "^2.3.4",
-    "signalk-schema": "0.0.1-0"
+    "signalk-schema": "0.0.1-1"
   }
 }
