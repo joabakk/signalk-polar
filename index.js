@@ -17,17 +17,20 @@
 const Bacon = require('baconjs')
 const debug = require('debug')('signalk-polar')
 const util = require('util')
-var express = require("express")
+const utilSK = require('nmea0183-utilities')
+const express = require("express")
+const _ = require('lodash')
 const mysql = require('mysql')
-var connection
+var pool
 
-vmg = rot = stw = awa = aws = eng = {}
+vmg = rot = stw = awa = aws = eng = sog = {}
 var engineRunning = true
 var engineSKPath = ""
 var twsInterval = 0.1 //Wind speed +-0.1 m/s
 var twaInterval = 0.0174533 //Wind angle +-1 degree
+var stablecourse = false
 
-vmgTimeSeconds = rotTimeSeconds = stwTimeSeconds = awaTimeSeconds = awsTimeSeconds = engTimeSeconds = cogTimeSeconds = 0
+vmgTimeSeconds = rotTimeSeconds = stwTimeSeconds = awaTimeSeconds = awsTimeSeconds = engTimeSeconds = cogTimeSeconds = secondsSinceStore = secondsSincePush = 0
 
 const items = [
   "performance.velocityMadeGood", // if empty, populate from this plugin
@@ -50,7 +53,7 @@ module.exports = function(app, options) {
   function handleDelta(delta, options) {
     if(delta.updates && delta.context === selfContext) {
       delta.updates.forEach(update => {
-        if(update.values) {
+        if(update.values && (update.source.talker != 'polar-plugin')) {
 
           var points = update.values.reduce((acc, pathValue, options) => {
             if(typeof pathValue.value === 'number') {//propulsion.*.state is not number!
@@ -58,44 +61,38 @@ module.exports = function(app, options) {
 
 
 
-              if ( storeIt ) {
+              if ( storeIt) {
 
-                debug(update.timestamp + " " + pathValue.path + " " + pathValue.value)
+                //debug(update.timestamp + " " + pathValue.path + " " + pathValue.value)
                 if (pathValue.path == "navigation.rateOfTurn"){
                   var rotTime = new Date(update.timestamp)
                   rotTimeSeconds = rotTime.getTime() / 1000 //need to convert to seconds for comparison
                   rot = pathValue.value
-                  debug("rot: " + rot + " " + rotTimeSeconds)
                 }
                 if (pathValue.path == "navigation.speedThroughWater"){
                   var stwTime = new Date(update.timestamp)
                   stwTimeSeconds = stwTime.getTime() / 1000
                   stw = pathValue.value
-                  debug("stw: " + stw + " " + stwTimeSeconds)
                 }
                 if (pathValue.path == "environment.wind.angleApparent"){
                   var awaTime = new Date(update.timestamp)
                   awaTimeSeconds = awaTime.getTime() / 1000
                   awa = pathValue.value
-                  debug("awa: " + awa + " " + awaTimeSeconds)
                 }
                 if (pathValue.path == "environment.wind.speedApparent"){
                   var awsTime = new Date(update.timestamp)
                   awsTimeSeconds = awsTime.getTime() / 1000
                   aws = pathValue.value
-                  debug("aws: " + aws + " " + awsTimeSeconds)
                 }
                 if (pathValue.path == "navigation.courseOverGroundTrue"){
                   var cogTime = new Date(update.timestamp)
                   cogTimeSeconds = cogTime.getTime() / 1000
                   cog = pathValue.value
-                  debug("cog: " + cog + " " + cogTimeSeconds)
                 }
                 if (pathValue.path == "navigation.speedOverGround"){
                   var sogTime = new Date(update.timestamp)
                   sogTimeSeconds = sogTime.getTime() / 1000
                   sog = pathValue.value
-                  debug("sog: " + sog + " " + sogTimeSeconds)
                 }
                 if (engineSKPath != "AlwaysOff"){
                   if (pathValue.path == engineSKPath){
@@ -127,50 +124,58 @@ module.exports = function(app, options) {
               else {
                 engineRunning = true
               }
-              if (timediff < maxInterval && engineRunning == false){
-                //debug("checking...")
-                debug("aws: " + aws + " awa: " + awa + " stw: " + stw)
-                tws = getTrueWindSpeed(sog, aws, awa)
-                twa = getTrueWindAngle(sog, tws, aws, awa)
-                vmg = getVelocityMadeGood(sog, twa)
+              if (Math.abs(rot) < options.rateOfTurnLimit){stable = true
+              }
+              else stable = false
 
-                connection.query('SELECT * FROM polar Where environmentWindSpeedTrue > ? AND environmentWindSpeedTrue < ? AND environmentWindAngleTrueGround > ? AND environmentWindAngleTrueGround < ?' ,[(tws - twsInterval), (tws + twsInterval), (twa - twaInterval), (twa + twaInterval)],function(err,rows){
+              if (timediff < maxInterval && engineRunning == false && secondsSinceStore < timeMax - 1){
+                tws = getTrueWindSpeed(stw, aws, awa)
+                twa = getTrueWindAngle(stw, tws, aws, awa)
+                vmg = getVelocityMadeGood(stw, twa)
+                if (secondsSincePush < timeMax - 1){
+                  pushDelta(app,  {"key": "environment.wind.speedTrue", "value": tws})
+                  pushDelta(app,  {"key": "environment.wind.angleTrueWater", "value": twa})
+                  pushDelta(app,  {"key": "performance.velocityMadeGood", "value": vmg})
+                  secondsSincePush = timeMax
+                }
+                //tack is implicit in wind angle, no need to check (or store)
+                //but check if rot between limits -5deg/min < rot < 5deg/min
+                pool.query('SELECT * FROM polar Where environmentWindSpeedTrue < ? AND environmentWindAngleTrueGround = ? AND navigationSpeedThroughWater > ?' ,[tws, twa, stw ],function(err,rows){
                   if(err) debug(err)
                   if(rows.length <= 0) {
-                    debug("no match found, inserting new item")
+                    secondsSinceStore = timeMax
                     if (awa < 0) {
                       tack = "port"
                     }
                     else {tack = "starboard"}
                     var newLine = { "timestamp": new Date(timeMax*1000).toISOString(), "environmentWindSpeedApparent": aws, "environmentWindSpeedTrue": tws, "environmentWindAngleApparent": awa, "environmentWindAngleTrueGround": twa, "navigationSpeedThroughWater": stw, "performanceVelocityMadeGood": vmg, "tack": tack}
                     //debug("newline: " + util.inspect(newline))
-                    connection.query('INSERT INTO polar SET ?', newLine, function(err,rows){
+                    pool.query('INSERT INTO polar SET ?', newLine, function(err,rows){
                       if(err) debug(err)
                     })
                   }
                   else {
                     debug('Data received from Db')
                     for (var i = 0; i < rows.length; i++) {
-                      //debug(rows[i].name)
                     }
                     //debug(rows)
                   }
                 })
               }
 
-              acc.push({
-                measurement: pathValue.path,
-                fields: {
-                  value: pathValue.value
-                }
-              })
+              /*acc.push({
+              measurement: pathValue.path,
+              fields: {
+              value: pathValue.value
             }
-          }
-          return acc
-        }, []
-      )
-    }
-  })
+          })*/
+        }
+      }
+      return acc
+    }, []
+  )
+}
+})
 }
 }
 
@@ -214,7 +219,7 @@ return {
         title: "mySQL Password",
         default: "polar"
       },
-      rateOfTurn: {
+      rateOfTurnLimit: {
         type: "number",
         title: "Store in database if rate of turn is less than [ ] deg/min (inertia gives false reading while turning vessel)",
         default: 5
@@ -223,98 +228,92 @@ return {
   },
 
   start: function(options) {
-    connection = mysql.createConnection({
+    pool  = mysql.createPool({
+      poolLimit : 10,
       host     : options.mysql,
       user     : options.user,
       password : options.password,
       database : 'polar'
     });
 
-    connection.connect(function(err) {
-      if (err) {
-        debug('error connecting: ' + err.stack);
-        return;
-      }
 
-      debug('connected to mysql as id ' + connection.threadId );
-    });
-    debug("started")
-
-
-
-
-    var obj = {}
-    if (options.engine == 'propulsion.*.revolutions'){
-      items.push(options.engine.replace(/\*/g, options.additional_info))
-      engineSKPath = options.engine.replace(/\*/g, options.additional_info)
-    }
-    else if (options.engine == 'propulsion.*.state'){
-      items.push(options.engine.replace(/\*/g, options.additional_info))
-      engineSKPath = options.engine.replace(/\*/g, options.additional_info)
-    }
-    else if (options.engine == "AlwaysOff"){
-      engineSKPath = "AlwaysOff"
-    }
-    debug("listening for " + util.inspect(items))
-    debug("engineSKPath: " + engineSKPath)
-    items.forEach(element => {
-      obj[element] = true
-    })
-
-    shouldStore = function(path) {
-      return typeof obj[path] != 'undefined'
-    }
-
-    app.signalk.on('delta', handleDelta)
-
-
-  },
-  registerWithRouter: function(router) {
-    // respond with "hello world" when a GET request is made to the homepage
-    router.get('/windspeed/:windSpeed/interval/:windInterval', (req, res) => {
-      debug("correct url")
-      res.contentType('application/json')
-      debug(util.inspect(req.params))
-      var windspeed = req.params.windSpeed
-    , interval = req.params.windInterval;
-      //json = {test:23}
-      connection.query({
-        sql: 'SELECT `environmentWindAngleTrueGround`, MAX(`navigationSpeedThroughWater`) AS `max` FROM `polar` WHERE `environmentWindSpeedTrue` < ? AND  `environmentWindSpeedTrue` > ? GROUP BY `environmentWindAngleTrueGround`',
-        //"SELECT `wind_dir` , MAX(  `boat_speed` ) FROM  `polar_design` WHERE `wind_speed` >1 AND  `wind_speed` <10 GROUP BY `wind_dir`"
-        timeout: 4000, // 4s
-        values: [windspeed, windspeed - interval]
-      }, function (error, results, fields) {
-        // error will be an Error if one occurred during the query
-        debug("error: " + error)
-        // results will contain the results of the query
-        //debug('The solution is: ', results[0])
-        //var json=[""]
-        for (var i = 0; i < results.length; i++) {
-          debug(results[i].environmentWindAngleTrueGround,results[i].max);
-          //json.push("[results[i].environmentWindAngleTrueGround], [results[i].max]")
-        };
-
-        json = JSON.stringify(results)
-        //debug(util.inspect(results))
-        //debug('result: ' + json)
-        // fields will contain information about the returned results fields (if any)
-        //debug(util.inspect(fields))
-      });
-      res.send(json) //scope issues
-    })
-  },
-  stop: function() {
-    unsubscribes.forEach(f => f())
-    items.length = items.length - 1
-    engineSKPath = ""
-    connection.end(function(err) {
-      if (err) {
-        debug('error disconnecting: ' + err.stack);
-        return;
-      }
-    });
-    app.signalk.removeListener('delta', handleDelta)
+    /*pool.connect(function(err) {
+    if (err) {
+    debug('error connecting: ' + err.stack);
+    return;
   }
+
+  debug('connected to mysql as id ' + pool.threadId );
+});*/
+debug("started")
+
+
+
+
+var obj = {}
+if (options.engine == 'propulsion.*.revolutions'){
+  items.push(options.engine.replace(/\*/g, options.additional_info))
+  engineSKPath = options.engine.replace(/\*/g, options.additional_info)
+}
+else if (options.engine == 'propulsion.*.state'){
+  items.push(options.engine.replace(/\*/g, options.additional_info))
+  engineSKPath = options.engine.replace(/\*/g, options.additional_info)
+}
+else if (options.engine == "AlwaysOff"){
+  engineSKPath = "AlwaysOff"
+}
+debug("listening for " + util.inspect(items))
+debug("engineSKPath: " + engineSKPath)
+items.forEach(element => {
+  obj[element] = true
+})
+
+shouldStore = function(path) {
+  return typeof obj[path] != 'undefined'
+}
+
+app.signalk.on('delta', handleDelta)
+
+
+},
+registerWithRouter: function(router) {
+  router.get('/windspeed/:windSpeed/interval/:windInterval', (req, res) => {
+    res.contentType('application/json')
+    debug(util.inspect(req.params))
+    var windspeed = req.params.windSpeed
+    , interval = req.params.windInterval;
+
+    pool.query({
+      sql: 'SELECT `environmentWindAngleTrueGround` AS `angle`, MAX(`navigationSpeedThroughWater`) AS `speed` FROM `polar` WHERE `environmentWindSpeedTrue` < ? AND  `environmentWindSpeedTrue` > ? GROUP BY `environmentWindAngleTrueGround`',
+      //"SELECT `wind_dir` , MAX(  `boat_speed` ) FROM  `polar_design` WHERE `wind_speed` >1 AND  `wind_speed` <10 GROUP BY `wind_dir`"
+      timeout: 4000, // 4s
+      values: [windspeed, windspeed - interval]
+    }, function (error, results, fields) {
+      // error will be an Error if one occurred during the query
+      debug("error: " + error)
+      // results will contain the results of the query
+
+      for (var i = 0; i < (results.length > -1 ? results.length : -1); i++) {
+        debug(results[i].angle,results[i].speed);
+      };
+
+      json = JSON.stringify(results)
+      // fields will contain information about the returned results fields (if any)
+
+    });
+    res.send(json)
+  })
+},
+stop: function() {
+  unsubscribes.forEach(f => f())
+  items.length = items.length - 1
+  engineSKPath = ""
+  pool.end(function (err) {
+    // all connections in the pool have ended
+  });
+
+  app.signalk.removeListener('delta', handleDelta)
+}
 }
 }
 
@@ -330,17 +329,25 @@ function getTrueWindAngle(speed, trueWindSpeed, apparentWindspeed, windAngle) {
   var cSquared = Math.pow(speed,2)
   var cosA =  (aSquared - bSquared - cSquared) / (2 * trueWindSpeed * speed)
 
-  if (cosA > 1 || cosA < -1){
+  if (windAngle == 0) {
+    return 0
+  }
+  else if (windAngle == Math.PI) {
+    return Math.PI
+  }
+
+  else if (cosA > 1 || cosA < -1){
     debug("invalid triangle")
     return null
   }
+
   else {
     if (windAngle > 0 && windAngle < Math.PI){ //Starboard
       var calc = Math.acos(cosA)
     } else if (windAngle < 0 && windAngle > -Math.PI){ //Port
       var calc = -Math.acos(cosA)
     }
-    debug("calc trueWindAngle: " + calc)
+    //debug("calc trueWindAngle: " + calc)
     return calc
   }
 };
@@ -354,3 +361,29 @@ function getTrueWindSpeed(speed, windSpeed, windAngle) {
 function getVelocityMadeGood(speed, trueWindAngle) {
   return Math.cos(trueWindAngle) * speed;
 };
+
+function pushDelta(app, command_json)
+{
+  var key = command_json["key"]
+  var value = command_json["value"]
+
+
+  const data = {
+    context: "vessels." + app.selfId,
+    updates: [
+      {
+        source: {"type":"server","sentence":"none","label":"calculated","talker":"polar-plugin"},
+        timestamp: utilSK.timestamp(),
+        values: [
+          {
+            'path': key,
+            'value': value
+          }
+        ]
+      }
+    ],
+  }
+  //debug("SK Delta: " + (JSON.stringify(data)))
+  app.signalk.addDelta(data)
+  return
+}
