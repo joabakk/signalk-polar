@@ -14,7 +14,7 @@
 	"dependencies": {
 		"baconjs": "^0.7.88",
 		"debug": "^2.6.3",
-		"influx": "^5.0.0",
+		"highcharts": "^5.0.9",
 		"nmea0183-utilities": "^0.3.2"
 	},
 	"devDependencies": {
