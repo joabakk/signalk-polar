@@ -21,9 +21,10 @@ const utilSK = require('nmea0183-utilities')
 const express = require("express")
 const _ = require('lodash')
 const mysql = require('mysql')
-var pool
+var pool,json
+var pushInterval
 
-vmg = rot = stw = awa = aws = eng = sog = {}
+var vmg = rot = stw = awa = twa = aws = tws = eng = sog = {}
 var engineRunning = true
 var engineSKPath = ""
 var twsInterval = 0.1 //Wind speed +-0.1 m/s
@@ -132,6 +133,7 @@ module.exports = function(app, options) {
                 tws = getTrueWindSpeed(stw, aws, awa)
                 twa = getTrueWindAngle(stw, tws, aws, awa)
                 vmg = getVelocityMadeGood(stw, twa)
+
                 if (secondsSincePush < timeMax - 1){
                   pushDelta(app,  {"key": "environment.wind.speedTrue", "value": tws})
                   pushDelta(app,  {"key": "environment.wind.angleTrueWater", "value": twa})
@@ -163,12 +165,6 @@ module.exports = function(app, options) {
                 })
               }
 
-              /*acc.push({
-              measurement: pathValue.path,
-              fields: {
-              value: pathValue.value
-            }
-          })*/
         }
       }
       return acc
@@ -236,15 +232,11 @@ return {
       database : 'polar'
     });
 
+    pushInterval = setInterval(function() {
+      getTarget(app, tws, twsInterval, Math.abs(twa), twaInterval, stw);
+      debug("sent to setInterval:" +  tws + " : " + twsInterval + " : " + Math.abs(twa) + " : " + twaInterval)
+    }, 1000);
 
-    /*pool.connect(function(err) {
-    if (err) {
-    debug('error connecting: ' + err.stack);
-    return;
-  }
-
-  debug('connected to mysql as id ' + pool.threadId );
-});*/
 debug("started")
 
 
@@ -284,8 +276,7 @@ registerWithRouter: function(router) {
     , interval = req.params.windInterval;
 
     pool.query({
-      sql: 'SELECT `environmentWindAngleTrueGround` AS `angle`, MAX(`navigationSpeedThroughWater`) AS `speed` FROM `polar` WHERE `environmentWindSpeedTrue` < ? AND  `environmentWindSpeedTrue` > ? GROUP BY `environmentWindAngleTrueGround`',
-      //"SELECT `wind_dir` , MAX(  `boat_speed` ) FROM  `polar_design` WHERE `wind_speed` >1 AND  `wind_speed` <10 GROUP BY `wind_dir`"
+      sql: 'SELECT `environmentWindAngleTrueGround` AS `angle`, MAX(`navigationSpeedThroughWater`) AS `speed` FROM `polar` WHERE `environmentWindSpeedTrue` < ? AND  `environmentWindSpeedTrue` > ? GROUP BY `environmentWindAngleTrueGround` ORDER BY ABS(`environmentWindAngleTrueGround`)',
       timeout: 4000, // 4s
       values: [windspeed, windspeed - interval]
     }, function (error, results, fields) {
@@ -293,7 +284,7 @@ registerWithRouter: function(router) {
       debug("error: " + error)
       // results will contain the results of the query
 
-      for (var i = 0; i < (results.length > -1 ? results.length : -1); i++) {
+      for (var i = 0; i < (results.length > 0 ? 4 : -1); i++) {
         debug(results[i].angle,results[i].speed);
       };
 
@@ -311,10 +302,67 @@ stop: function() {
   pool.end(function (err) {
     // all connections in the pool have ended
   });
+  clearInterval(pushInterval);
 
   app.signalk.removeListener('delta', handleDelta)
 }
 }
+}
+
+function getTarget(app, trueWindSpeed, windInterval, trueWindAngle, twaInterval, speedThroughWater){
+  pool.query({
+    sql: 'SELECT * FROM `polar` WHERE `environmentWindSpeedTrue` < ? AND `environmentWindSpeedTrue` > ? AND `performanceVelocityMadeGood` = ( SELECT MAX(`performanceVelocityMadeGood`)) ORDER BY `performanceVelocityMadeGood` DESC LIMIT 1',
+    timeout: 500, // 0.5s
+    values: [trueWindSpeed, trueWindSpeed - windInterval]
+  }, function (error, resultsTack, fields) {
+    // error will be an Error if one occurred during the query
+    //debug("error: " + error)
+    // results will contain the results of the query
+    if (resultsTack.length > 0){
+
+      debug("target tack angle: " + resultsTack[0].environmentWindAngleTrueGround + " speed: " + resultsTack[0].navigationSpeedThroughWater);
+      pushDelta(app,  {"key": "performance.beatAngle", "value": Math.abs(resultsTack[0].environmentWindAngleTrueGround)});
+      pushDelta(app,  {"key": "performance.beatAngleTargetSpeed", "value": resultsTack[0].navigationSpeedThroughWater});
+      pushDelta(app,  {"key": "performance.beatAngleVelocityMadeGood", "value": resultsTack[0].performanceVelocityMadeGood});
+
+}
+  });
+  pool.query({
+    sql: 'SELECT * FROM `polar` WHERE `environmentWindSpeedTrue` < ? AND `environmentWindSpeedTrue` > ? AND `performanceVelocityMadeGood` = ( SELECT MIN(`performanceVelocityMadeGood`)) ORDER BY `performanceVelocityMadeGood` ASC LIMIT 1',
+    timeout: 500, // 0.5s
+    values: [trueWindSpeed, trueWindSpeed - windInterval]
+  }, function (error, resultsGybe, fields) {
+    // error will be an Error if one occurred during the query
+    //debug("error: " + error)
+    // results will contain the results of the query
+    if (resultsGybe.length > 0){
+
+      debug("target gybe angle: " + resultsGybe[0].environmentWindAngleTrueGround + " speed: " + resultsGybe[0].navigationSpeedThroughWater);
+      pushDelta(app,  {"key": "performance.gybeAngle", "value": Math.abs(resultsGybe[0].environmentWindAngleTrueGround)});
+      pushDelta(app,  {"key": "performance.gybeAngleTargetSpeed", "value": resultsGybe[0].navigationSpeedThroughWater});
+      pushDelta(app,  {"key": "performance.gybeAngleVelocityMadeGood", "value": Math.abs(resultsGybe[0].performanceVelocityMadeGood)});
+
+
+}
+  });
+  pool.query({
+    sql: 'SELECT * FROM `polar` WHERE `environmentWindSpeedTrue` < ? AND `environmentWindSpeedTrue` > ? AND ABS(`environmentWindAngleTrueGround`) < ? AND ABS(`environmentWindAngleTrueGround`) > ? AND `navigationSpeedThroughWater` = ( SELECT MAX(`navigationSpeedThroughWater`)) ORDER BY `navigationSpeedThroughWater` DESC LIMIT 1',
+    timeout: 500, // 0.5s
+    values: [trueWindSpeed, trueWindSpeed - windInterval, trueWindAngle, trueWindAngle - twaInterval]
+  }, function (error, resultsPolar, fields) {
+    // error will be an Error if one occurred during the query
+    debug("error: " + error)
+    // results will contain the results of the query
+
+    if (resultsPolar.length > 0){
+      pushDelta(app,  {"key": "performance.polarSpeed", "value": resultsPolar[0].navigationSpeedThroughWater});
+      pushDelta(app,  {"key": "performance.polarSpeedRatio", "value": speedThroughWater/resultsPolar[0].navigationSpeedThroughWater});
+
+
+
+}
+  });
+
 }
 
 function getTrueWindAngle(speed, trueWindSpeed, apparentWindspeed, windAngle) {
@@ -347,7 +395,6 @@ function getTrueWindAngle(speed, trueWindSpeed, apparentWindspeed, windAngle) {
     } else if (windAngle < 0 && windAngle > -Math.PI){ //Port
       var calc = -Math.acos(cosA)
     }
-    //debug("calc trueWindAngle: " + calc)
     return calc
   }
 };
