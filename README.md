@@ -22,3 +22,4 @@ CREATE TABLE `polar` (
 ) ENGINE=InnoDB AUTO_INCREMENT=65577 DEFAULT CHARSET=latin1;
 ```
 
+And create a user name and password if you do not want to use the root password to mySQL
