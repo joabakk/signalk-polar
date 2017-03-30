@@ -284,10 +284,6 @@ registerWithRouter: function(router) {
       debug("error: " + error)
       // results will contain the results of the query
 
-      for (var i = 0; i < (results.length > 0 ? 4 : -1); i++) {
-        debug(results[i].angle,results[i].speed);
-      };
-
       json = JSON.stringify(results)
       // fields will contain information about the returned results fields (if any)
 
@@ -299,9 +295,9 @@ stop: function() {
   unsubscribes.forEach(f => f())
   items.length = items.length - 1
   engineSKPath = ""
-  pool.end(function (err) {
+  if (typeof pool !== "undefined") {pool.end(function (err) {
     // all connections in the pool have ended
-  });
+  })};
   clearInterval(pushInterval);
 
   app.signalk.removeListener('delta', handleDelta)
