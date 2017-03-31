@@ -10,16 +10,16 @@ The plugin assumes that mySQL is installed and the database you specify exists. 
 CREATE TABLE `polar` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
   `timestamp` text,
-  `environmentWindSpeedApparent` float DEFAULT NULL,
-  `environmentWindSpeedTrue` float DEFAULT NULL,
-  `environmentWindAngleApparent` float DEFAULT NULL,
-  `environmentWindAngleTrueGround` float DEFAULT NULL,
-  `navigationSpeedThroughWater` float DEFAULT NULL,
-  `performanceVelocityMadeGood` float DEFAULT NULL,
+  `environmentWindSpeedApparent` double DEFAULT NULL,
+  `environmentWindSpeedTrue` double DEFAULT NULL,
+  `environmentWindAngleApparent` double DEFAULT NULL,
+  `environmentWindAngleTrueGround` double DEFAULT NULL,
+  `navigationSpeedThroughWater` double DEFAULT NULL,
+  `performanceVelocityMadeGood` double DEFAULT NULL,
   `tack` text,
-  `navigationRateOfTurn` float DEFAULT NULL,
+  `navigationRateOfTurn` double DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=65577 DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB AUTO_INCREMENT=309 DEFAULT CHARSET=latin1;
 ```
 
 And create a user name and password if you do not want to use the root password to mySQL
