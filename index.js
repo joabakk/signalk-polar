@@ -142,8 +142,9 @@ module.exports = function(app, options) {
                 }
                 //tack is implicit in wind angle, no need to check (or store)
                 //but check if rot between limits -5deg/min < rot < 5deg/min
-                pool.query('SELECT * FROM polar Where environmentWindSpeedTrue < ? AND environmentWindAngleTrueGround = ? AND navigationSpeedThroughWater > ?' ,[tws, twa, stw ],function(err,rows){
+                pool.query('SELECT * FROM polar Where environmentWindSpeedTrue <= ? AND environmentWindAngleTrueGround = ? AND navigationSpeedThroughWater < ?' ,[tws, twa, stw ],function(err,rows){
                   if(err) debug(err)
+                  debug("rows.length:" + rows.length)
                   if(rows.length <= 0) {
                     secondsSinceStore = timeMax
                     if (awa < 0) {
@@ -165,13 +166,13 @@ module.exports = function(app, options) {
                 })
               }
 
-        }
-      }
-      return acc
-    }, []
-  )
-}
-})
+            }
+          }
+          return acc
+        }, []
+      )
+    }
+  })
 }
 }
 
@@ -237,75 +238,71 @@ return {
       debug("sent to setInterval:" +  tws + " : " + twsInterval + " : " + Math.abs(twa) + " : " + twaInterval)
     }, 1000);
 
-debug("started")
+    debug("started")
 
 
 
 
-var obj = {}
-if (options.engine == 'propulsion.*.revolutions'){
-  items.push(options.engine.replace(/\*/g, options.additional_info))
-  engineSKPath = options.engine.replace(/\*/g, options.additional_info)
-}
-else if (options.engine == 'propulsion.*.state'){
-  items.push(options.engine.replace(/\*/g, options.additional_info))
-  engineSKPath = options.engine.replace(/\*/g, options.additional_info)
-}
-else if (options.engine == "AlwaysOff"){
-  engineSKPath = "AlwaysOff"
-}
-debug("listening for " + util.inspect(items))
-debug("engineSKPath: " + engineSKPath)
-items.forEach(element => {
-  obj[element] = true
-})
+    var obj = {}
+    if (options.engine == 'propulsion.*.revolutions'){
+      items.push(options.engine.replace(/\*/g, options.additional_info))
+      engineSKPath = options.engine.replace(/\*/g, options.additional_info)
+    }
+    else if (options.engine == 'propulsion.*.state'){
+      items.push(options.engine.replace(/\*/g, options.additional_info))
+      engineSKPath = options.engine.replace(/\*/g, options.additional_info)
+    }
+    else if (options.engine == "AlwaysOff"){
+      engineSKPath = "AlwaysOff"
+    }
+    debug("listening for " + util.inspect(items))
+    debug("engineSKPath: " + engineSKPath)
+    items.forEach(element => {
+      obj[element] = true
+    })
 
-shouldStore = function(path) {
-  return typeof obj[path] != 'undefined'
-}
+    shouldStore = function(path) {
+      return typeof obj[path] != 'undefined'
+    }
 
-app.signalk.on('delta', handleDelta)
+    app.signalk.on('delta', handleDelta)
 
 
-},
-registerWithRouter: function(router) {
-  router.get('/windspeed/:windSpeed/interval/:windInterval', (req, res) => {
-    res.contentType('application/json')
-    debug(util.inspect(req.params))
-    var windspeed = req.params.windSpeed
-    , interval = req.params.windInterval;
+  },
+  registerWithRouter: function(router) {
+    router.get('/windspeed/:windSpeed/interval/:windInterval', (req, res) => {
+      res.contentType('application/json')
+      debug(util.inspect(req.params))
+      var windspeed = req.params.windSpeed
+      , interval = req.params.windInterval;
 
-    pool.query({
-      sql: 'SELECT `environmentWindAngleTrueGround` AS `angle`, MAX(`navigationSpeedThroughWater`) AS `speed` FROM `polar` WHERE `environmentWindSpeedTrue` < ? AND  `environmentWindSpeedTrue` > ? GROUP BY `environmentWindAngleTrueGround` ORDER BY ABS(`environmentWindAngleTrueGround`)',
-      timeout: 4000, // 4s
-      values: [windspeed, windspeed - interval]
-    }, function (error, results, fields) {
-      // error will be an Error if one occurred during the query
-      debug("error: " + error)
-      // results will contain the results of the query
+      pool.query({
+        sql: 'SELECT `environmentWindAngleTrueGround` AS `angle`, MAX(`navigationSpeedThroughWater`) AS `speed` FROM `polar` WHERE `environmentWindSpeedTrue` < ? AND  `environmentWindSpeedTrue` > ? GROUP BY `environmentWindAngleTrueGround` ORDER BY ABS(`environmentWindAngleTrueGround`)',
+        timeout: 4000, // 4s
+        values: [windspeed, windspeed - interval]
+      }, function (error, results, fields) {
+        // error will be an Error if one occurred during the query
+        debug("error: " + error)
+        // results will contain the results of the query
 
-      for (var i = 0; i < (results.length > 0 ? 4 : -1); i++) {
-        debug(results[i].angle,results[i].speed);
-      };
+        json = JSON.stringify(results)
+        // fields will contain information about the returned results fields (if any)
 
-      json = JSON.stringify(results)
-      // fields will contain information about the returned results fields (if any)
+      });
+      res.send(json)
+    })
+  },
+  stop: function() {
+    unsubscribes.forEach(f => f())
+    items.length = items.length - 1
+    engineSKPath = ""
+    if (typeof pool !== "undefined") {pool.end(function (err) {
+      // all connections in the pool have ended
+    })};
+    clearInterval(pushInterval);
 
-    });
-    res.send(json)
-  })
-},
-stop: function() {
-  unsubscribes.forEach(f => f())
-  items.length = items.length - 1
-  engineSKPath = ""
-  pool.end(function (err) {
-    // all connections in the pool have ended
-  });
-  clearInterval(pushInterval);
-
-  app.signalk.removeListener('delta', handleDelta)
-}
+    app.signalk.removeListener('delta', handleDelta)
+  }
 }
 }
 
@@ -324,8 +321,12 @@ function getTarget(app, trueWindSpeed, windInterval, trueWindAngle, twaInterval,
       pushDelta(app,  {"key": "performance.beatAngle", "value": Math.abs(resultsTack[0].environmentWindAngleTrueGround)});
       pushDelta(app,  {"key": "performance.beatAngleTargetSpeed", "value": resultsTack[0].navigationSpeedThroughWater});
       pushDelta(app,  {"key": "performance.beatAngleVelocityMadeGood", "value": resultsTack[0].performanceVelocityMadeGood});
+      if (Math.abs(trueWindAngle) < Math.PI/2){
+        pushDelta(app,  {"key": "performance.targetAngle", "value": Math.abs(resultsTack[0].environmentWindAngleTrueGround)})
+        pushDelta(app,  {"key": "performance.targetSpeed", "value": resultsTack[0].navigationSpeedThroughWater})
+      }
 
-}
+    }
   });
   pool.query({
     sql: 'SELECT * FROM `polar` WHERE `environmentWindSpeedTrue` < ? AND `environmentWindSpeedTrue` > ? AND `performanceVelocityMadeGood` = ( SELECT MIN(`performanceVelocityMadeGood`)) ORDER BY `performanceVelocityMadeGood` ASC LIMIT 1',
@@ -341,9 +342,13 @@ function getTarget(app, trueWindSpeed, windInterval, trueWindAngle, twaInterval,
       pushDelta(app,  {"key": "performance.gybeAngle", "value": Math.abs(resultsGybe[0].environmentWindAngleTrueGround)});
       pushDelta(app,  {"key": "performance.gybeAngleTargetSpeed", "value": resultsGybe[0].navigationSpeedThroughWater});
       pushDelta(app,  {"key": "performance.gybeAngleVelocityMadeGood", "value": Math.abs(resultsGybe[0].performanceVelocityMadeGood)});
+      if (Math.abs(trueWindAngle) > Math.PI/2){
+        pushDelta(app,  {"key": "performance.targetAngle", "value": Math.abs(resultsGybe[0].environmentWindAngleTrueGround)})
+        pushDelta(app,  {"key": "performance.targetSpeed", "value": resultsGybe[0].navigationSpeedThroughWater})
+      }
 
 
-}
+    }
   });
   pool.query({
     sql: 'SELECT * FROM `polar` WHERE `environmentWindSpeedTrue` < ? AND `environmentWindSpeedTrue` > ? AND ABS(`environmentWindAngleTrueGround`) < ? AND ABS(`environmentWindAngleTrueGround`) > ? AND `navigationSpeedThroughWater` = ( SELECT MAX(`navigationSpeedThroughWater`)) ORDER BY `navigationSpeedThroughWater` DESC LIMIT 1',
@@ -360,7 +365,7 @@ function getTarget(app, trueWindSpeed, windInterval, trueWindAngle, twaInterval,
 
 
 
-}
+    }
   });
 
 }
