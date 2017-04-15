@@ -243,7 +243,6 @@ return {
 
 
 
-<<<<<<< HEAD
     var obj = {}
     if (options.engine == 'propulsion.*.revolutions'){
       items.push(options.engine.replace(/\*/g, options.additional_info))
@@ -268,65 +267,6 @@ return {
 
     app.signalk.on('delta', handleDelta)
 
-=======
-var obj = {}
-if (options.engine == 'propulsion.*.revolutions'){
-  items.push(options.engine.replace(/\*/g, options.additional_info))
-  engineSKPath = options.engine.replace(/\*/g, options.additional_info)
-}
-else if (options.engine == 'propulsion.*.state'){
-  items.push(options.engine.replace(/\*/g, options.additional_info))
-  engineSKPath = options.engine.replace(/\*/g, options.additional_info)
-}
-else if (options.engine == "AlwaysOff"){
-  engineSKPath = "AlwaysOff"
-}
-debug("listening for " + util.inspect(items))
-debug("engineSKPath: " + engineSKPath)
-items.forEach(element => {
-  obj[element] = true
-})
-
-shouldStore = function(path) {
-  return typeof obj[path] != 'undefined'
-}
-
-app.signalk.on('delta', handleDelta)
-
-
-},
-registerWithRouter: function(router) {
-  router.get('/windspeed/:windSpeed/interval/:windInterval', (req, res) => {
-    res.contentType('application/json')
-    debug(util.inspect(req.params))
-    var windspeed = req.params.windSpeed
-    , interval = req.params.windInterval;
-
-    pool.query({
-      sql: 'SELECT `environmentWindAngleTrueGround` AS `angle`, MAX(`navigationSpeedThroughWater`) AS `speed` FROM `polar` WHERE `environmentWindSpeedTrue` < ? AND  `environmentWindSpeedTrue` > ? GROUP BY `environmentWindAngleTrueGround` ORDER BY ABS(`environmentWindAngleTrueGround`)',
-      timeout: 4000, // 4s
-      values: [windspeed, windspeed - interval]
-    }, function (error, results, fields) {
-      // error will be an Error if one occurred during the query
-      debug("error: " + error)
-      // results will contain the results of the query
-
-      json = JSON.stringify(results)
-      // fields will contain information about the returned results fields (if any)
-
-    });
-    res.send(json)
-  })
-},
-stop: function() {
-  unsubscribes.forEach(f => f())
-  items.length = items.length - 1
-  engineSKPath = ""
-  if (typeof pool !== "undefined") {pool.end(function (err) {
-    // all connections in the pool have ended
-  })};
-  clearInterval(pushInterval);
->>>>>>> origin/master
 
   },
   registerWithRouter: function(router) {
