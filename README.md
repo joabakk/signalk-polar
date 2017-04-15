@@ -1,18 +1,25 @@
-# Signal K to InfluxDb Plugin
+# Signal K to dynamic mySQL polar table
 
 [![Greenkeeper badge](https://badges.greenkeeper.io/joabakk/signalk-polar.svg)](https://greenkeeper.io/)
-Signal K Node server plugin to write all simple numeric Signal K values to [InfluxDB](https://www.influxdata.com/time-series-platform/influxdb/), a time series database.
+Signal K Node server plugin to compare performance and write best performance to  [mySQL](https://www.mysql.com/), database.
 
-Once the data is in InfluxDb you can use for example [Grafana](http://grafana.org/) to draw pretty graphs of your data.
+This is the backend for https://github.com/joabakk/signalk-polar-graphing, to be able to visually see current performance compared to previous sailed performance. 
 
-The plugin assumes that the database you specify exists. You can create one with
+The plugin assumes that mySQL is installed and the database you specify exists. The database must be called 'polar' and the table can be created with the mySQL command:
+```
+CREATE TABLE `polar` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `timestamp` text,
+  `environmentWindSpeedApparent` double DEFAULT NULL,
+  `environmentWindSpeedTrue` double DEFAULT NULL,
+  `environmentWindAngleApparent` double DEFAULT NULL,
+  `environmentWindAngleTrueGround` double DEFAULT NULL,
+  `navigationSpeedThroughWater` double DEFAULT NULL,
+  `performanceVelocityMadeGood` double DEFAULT NULL,
+  `tack` text,
+  `navigationRateOfTurn` double DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=309 DEFAULT CHARSET=latin1;
+```
 
-`curl -X POST http://localhost:8086/query?q=CREATE+DATABASE+boatdata`
-
-The plugin writes only `self` data. It converts Signal K paths to InfluxDb `measurement` keys in CamelCase format, eg. `navigationPosition`.
-
-Adding support for non-self data would be pretty easy by adding context as InfluxDB tags.
-
-If you want to try this out I suggest you try [InfluxCloud](https://cloud.influxdata.com/) (have not tried yet myself) or run InfluxDb locally with Docker by using [ready made Dockerfiles](https://github.com/tutumcloud/influxdb).
-
-Compatible with InfluxDB 1.x.
+And create a user name and password if you do not want to use the root password to mySQL
