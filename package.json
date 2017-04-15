@@ -1,12 +1,14 @@
 {
 	"name": "signalk-polar",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"description": "Signal K server plugin to store and retrieve polar data with mySQL db",
 	"keywords": [
 		"signalk-node-server-plugin"
 	],
 	"license": "ISC",
-	"author": "Joachim Bakke",
+	"author": {
+		"name": "Joachim Bakke"
+	},
 	"main": "index.js",
 	"scripts": {
 		"test": "mocha"
@@ -14,7 +16,7 @@
 	"dependencies": {
 		"baconjs": "^0.7.88",
 		"debug": "^2.6.3",
-		"influx": "^5.0.0",
+		"mysql": "^2.13.0",
 		"nmea0183-utilities": "^0.3.2"
 	},
 	"devDependencies": {
@@ -23,5 +25,58 @@
 		"debug": "^2.2.0",
 		"mocha": "^2.3.4",
 		"signalk-schema": "0.0.1-0"
-	}
+	},
+	"optionalDependencies": {},
+	"readme": "# Signal K to dynamic mySQL polar table[![Greenkeeper badge](https://badges.greenkeeper.io/joabakk/signalk-polar.svg)](https://greenkeeper.io/)Signal K Node server plugin to compare performance and write best performance to  [mySQL](https://www.mysql.com/), database.This is the backend for https://github.com/joabakk/signalk-polar-graphing, to be able to visually see current performance compared to previous sailed performance. The plugin assumes that mySQL is installed and the database you specify exists. The database must be called 'polar' and the table can be created with the mySQL command:```CREATE TABLE `polar` (  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,  `timestamp` text,  `environmentWindSpeedApparent` float DEFAULT NULL,  `environmentWindSpeedTrue` float DEFAULT NULL,  `environmentWindAngleApparent` float DEFAULT NULL,  `environmentWindAngleTrueGround` float DEFAULT NULL,  `navigationSpeedThroughWater` float DEFAULT NULL,  `performanceVelocityMadeGood` float DEFAULT NULL,  `tack` text,  `navigationRateOfTurn` float DEFAULT NULL,  PRIMARY KEY (`id`)) ENGINE=InnoDB AUTO_INCREMENT=65577 DEFAULT CHARSET=latin1;```",
+	"_args": [
+		[
+			{
+				"raw": "joabakk/signalk-polar",
+				"rawSpec": "joabakk/signalk-polar",
+				"spec": "github:joabakk/signalk-polar",
+				"type": "hosted",
+				"hosted": {
+					"type": "github",
+					"ssh": "git@github.com:joabakk/signalk-polar.git",
+					"sshUrl": "git+ssh://git@github.com/joabakk/signalk-polar.git",
+					"httpsUrl": "git+https://github.com/joabakk/signalk-polar.git",
+					"gitUrl": "git://github.com/joabakk/signalk-polar.git",
+					"shortcut": "github:joabakk/signalk-polar",
+					"directUrl": "https://raw.githubusercontent.com/joabakk/signalk-polar/master/package.json"
+				}
+			},
+			"/Users/joachim/Downloads/signalk-server-node"
+		]
+	],
+	"_from": "joabakk/signalk-polar",
+	"_id": "signalk-polar@0.0.1",
+	"_inCache": true,
+	"_location": "/signalk-polar",
+	"_phantomChildren": {
+		"ms": "0.7.2"
+	},
+	"_requested": {
+		"raw": "joabakk/signalk-polar",
+		"rawSpec": "joabakk/signalk-polar",
+		"spec": "github:joabakk/signalk-polar",
+		"type": "hosted",
+		"hosted": {
+			"type": "github",
+			"ssh": "git@github.com:joabakk/signalk-polar.git",
+			"sshUrl": "git+ssh://git@github.com/joabakk/signalk-polar.git",
+			"httpsUrl": "git+https://github.com/joabakk/signalk-polar.git",
+			"gitUrl": "git://github.com/joabakk/signalk-polar.git",
+			"shortcut": "github:joabakk/signalk-polar",
+			"directUrl": "https://raw.githubusercontent.com/joabakk/signalk-polar/master/package.json"
+		}
+	},
+	"_requiredBy": [
+		"#USER"
+	],
+	"_resolved": "git://github.com/joabakk/signalk-polar.git#9eb6e0cf48a9656350c8212529c72ac76ba54dc9",
+	"_shasum": "4791713e9f30588add9319f2709b8547bdd9a3a6",
+	"_spec": "joabakk/signalk-polar",
+	"_where": "/Users/joachim/Downloads/signalk-server-node",
+	"gitHead": "9eb6e0cf48a9656350c8212529c72ac76ba54dc9",
+	"readmeFilename": "README.md"
 }
