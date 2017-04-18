@@ -315,7 +315,7 @@ function getTarget(app, trueWindSpeed, windInterval, trueWindAngle, twaInterval,
     // error will be an Error if one occurred during the query
     //debug("error: " + error)
     // results will contain the results of the query
-    if (resultsTack.length > 0){
+    if (resultsTack !== 'undefined' && resultsTack && resultsTack.length > 0){
 
       debug("target tack angle: " + resultsTack[0].environmentWindAngleTrueGround + " speed: " + resultsTack[0].navigationSpeedThroughWater);
       pushDelta(app,  {"key": "performance.beatAngle", "value": Math.abs(resultsTack[0].environmentWindAngleTrueGround)});
@@ -336,7 +336,7 @@ function getTarget(app, trueWindSpeed, windInterval, trueWindAngle, twaInterval,
     // error will be an Error if one occurred during the query
     //debug("error: " + error)
     // results will contain the results of the query
-    if (resultsGybe.length > 0){
+    if (resultsGybe !== 'undefined' && resultsGybe && resultsGybe.length > 0){
 
       debug("target gybe angle: " + resultsGybe[0].environmentWindAngleTrueGround + " speed: " + resultsGybe[0].navigationSpeedThroughWater);
       pushDelta(app,  {"key": "performance.gybeAngle", "value": Math.abs(resultsGybe[0].environmentWindAngleTrueGround)});
@@ -359,7 +359,7 @@ function getTarget(app, trueWindSpeed, windInterval, trueWindAngle, twaInterval,
     debug("error: " + error)
     // results will contain the results of the query
 
-    if (resultsPolar.length > 0){
+    if (resultsPolar !== 'undefined' && resultsPolar && resultsPolar.length > 0){
       pushDelta(app,  {"key": "performance.polarSpeed", "value": resultsPolar[0].navigationSpeedThroughWater});
       pushDelta(app,  {"key": "performance.polarSpeedRatio", "value": speedThroughWater/resultsPolar[0].navigationSpeedThroughWater});
 
