@@ -29,7 +29,7 @@ var engineRunning = true;
 var engineSKPath = "";
 var twsInterval = 0.1 ;//Wind speed +-0.1 m/s
 var twaInterval = 0.0174533 ;//Wind angle +-1 degree
-var stablecourse = false;
+var stableCourse = false;
 
 var vmgTimeSeconds, rotTimeSeconds, stwTimeSeconds, awaTimeSeconds, awsTimeSeconds, engTimeSeconds, cogTimeSeconds, secondsSinceStore, secondsSincePush;
 
@@ -127,9 +127,9 @@ module.exports = function(app, options) {
               else {
                 engineRunning = true;
               }
-              if (Math.abs(rot) < options.rateOfTurnLimit){stable = true;
+              if (Math.abs(rot) < options.rateOfTurnLimit){stableCourse = true;
               }
-              else var stable = false;
+              else stableCourse = false;
 
               if (timediff < maxInterval && engineRunning === false && secondsSinceStore < timeMax - 1){
                 tws = getTrueWindSpeed(stw, aws, awa);
