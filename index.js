@@ -129,7 +129,7 @@ module.exports = function(app, options) {
               }
               if (Math.abs(rot) < options.rateOfTurnLimit){stable = true;
               }
-              else stable = false;
+              else var stable = false;
 
               if (timediff < maxInterval && engineRunning === false && secondsSinceStore < timeMax - 1){
                 tws = getTrueWindSpeed(stw, aws, awa);
