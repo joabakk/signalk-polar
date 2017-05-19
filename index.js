@@ -31,7 +31,7 @@ var twsInterval = 0.1 ;//Wind speed +-0.1 m/s
 var twaInterval = 0.0174533 ;//Wind angle +-1 degree
 var stableCourse = false;
 
-var vmgTimeSeconds, rotTimeSeconds, stwTimeSeconds, awaTimeSeconds, awsTimeSeconds, engTimeSeconds, cogTimeSeconds, secondsSinceStore, secondsSincePush;
+var vmgTimeSeconds, rotTimeSeconds, stwTimeSeconds, awaTimeSeconds, awsTimeSeconds, engTimeSeconds, cogTimeSeconds, sogTimeSeconds, secondsSinceStore, secondsSincePush;
 
 const items = [
   "performance.velocityMadeGood", // if empty, populate from this plugin
