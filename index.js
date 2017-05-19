@@ -24,7 +24,7 @@ const mysql = require('mysql');
 var pool,json;
 var pushInterval;
 
-var vmg, rot, stw, awa, twa, aws, tws, eng, sog;
+var vmg, rot, stw, awa, twa, aws, tws, eng, sog, cog;
 var engineRunning = true;
 var engineSKPath = "";
 var twsInterval = 0.1 ;//Wind speed +-0.1 m/s
