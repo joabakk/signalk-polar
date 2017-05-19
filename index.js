@@ -110,9 +110,9 @@ module.exports = function(app, options) {
                 }
                 //debug("times: " + rotTimeSeconds + " " + stwTimeSeconds + " " + awaTimeSeconds + " " + engTimeSeconds)
                 //debug("rot: " +rot + " stw: " + stw + " awa: " + awa+ " eng: " + eng)
-                timeMax = Math.max(/*rotTimeSeconds,*/ stwTimeSeconds, awaTimeSeconds, awsTimeSeconds, cogTimeSeconds);
-                timeMin = Math.min(/*rotTimeSeconds,*/ stwTimeSeconds, awaTimeSeconds, awsTimeSeconds, cogTimeSeconds);
-                timediff = timeMax - timeMin;
+                var timeMax = Math.max(/*rotTimeSeconds,*/ stwTimeSeconds, awaTimeSeconds, awsTimeSeconds, cogTimeSeconds);
+                var timeMin = Math.min(/*rotTimeSeconds,*/ stwTimeSeconds, awaTimeSeconds, awsTimeSeconds, cogTimeSeconds);
+                var timediff = timeMax - timeMin;
                 //debug("time diff " + timediff)
 
                 if (engineSKPath == "AlwaysOff"){
