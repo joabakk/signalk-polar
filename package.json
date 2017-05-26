@@ -20,7 +20,7 @@
 		"nmea0183-utilities": "^0.3.2"
 	},
 	"devDependencies": {
-		"chai": "^3.4.1",
+		"chai": "^4.0.0",
 		"chai-things": "^0.2.0",
 		"debug": "^2.2.0",
 		"mocha": "^3.3.0",
