@@ -15,7 +15,7 @@
 	},
 	"dependencies": {
 		"baconjs": "^0.7.88",
-		"debug": "^3.0.0",
+		"debug": "^3.0.1",
 		"mysql": "^2.13.0",
 		"nmea0183-utilities": "^0.3.2"
 	},
