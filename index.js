@@ -301,7 +301,6 @@ module.exports = function(app, options) {
               FROM polar
               WHERE environmentWindSpeedTrue < ?
               AND  environmentWindSpeedTrue > ?
-              GROUP BY environmentWindAngleTrueGround
               ORDER BY environmentWindAngleTrueGround`, windspeed, windspeed - interval, function(err, rows){
 
                 // error will be an Error if one occurred during the query
@@ -320,6 +319,7 @@ module.exports = function(app, options) {
         items.length = items.length - 1;
         engineSKPath = "";
         //db.close();
+
 
         clearInterval(pushInterval);
 
