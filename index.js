@@ -209,7 +209,7 @@ module.exports = function(app, options) {
         title: "A Signal K (node) plugin to maintain polar diagrams in a sqlite3 database",
         description: "",
         required: [
-          "engine", "mysql", "user", "password"
+          "engine", "sqliteFile"
         ],
 
         properties: {
@@ -226,8 +226,8 @@ module.exports = function(app, options) {
           },
           sqliteFile: {
             type: "string",
-            title: "File for storing sqlite3 data, relative path to this plugin",
-            default: "../../polarDatabase.db"
+            title: "File for storing sqlite3 data, relative path to server",
+            default: "./polarDatabase.db"
           },
           rateOfTurnLimit: {
             type: "number",
