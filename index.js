@@ -319,7 +319,7 @@ module.exports = function(app, options) {
         unsubscribes.forEach(f => f());
         items.length = items.length - 1;
         engineSKPath = "";
-        db.close();
+        //db.close();
 
         clearInterval(pushInterval);
 
