@@ -302,7 +302,7 @@ module.exports = function(app, options) {
               WHERE environmentWindSpeedTrue < ?
               AND  environmentWindSpeedTrue > ?
               GROUP BY environmentWindAngleTrueGround
-              ORDER BY ABS(environmentWindAngleTrueGround)`, windspeed, windspeed - interval, function(err, rows){
+              ORDER BY environmentWindAngleTrueGround`, windspeed, windspeed - interval, function(err, rows){
 
                 // error will be an Error if one occurred during the query
                 if(err){
