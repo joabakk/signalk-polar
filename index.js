@@ -57,7 +57,7 @@ module.exports = function(app, options) {
   function handleDelta(delta, options) {
     if(delta.updates && delta.context === selfContext) {
       delta.updates.forEach(update => {
-        if(update.values && (update.source.talker != 'polar-plugin')) {
+        if(update.values && typeof update.source != 'undefined' && (update.source.talker != 'polar-plugin')) {
 
           var points = update.values.reduce((acc, pathValue, options) => {
             if(typeof pathValue.value === 'number') {//propulsion.*.state is not number!
