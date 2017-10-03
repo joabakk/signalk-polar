@@ -299,8 +299,10 @@ module.exports = function(app, options) {
                 navigationSpeedThroughWater DOUBLE DEFAULT NULL,
                 performanceVelocityMadeGood DOUBLE DEFAULT NULL)`, function(err, row){
 
-                  db.run(`DELETE FROM ${tableName}`)
-                  db.run(`VACUUM`)
+                  db.run(`DELETE FROM ${tableName}`, function(err){
+                    db.run(`VACUUM`)
+                  })
+
                   // No way of knowing whether the cells are new info or not, otherwise will insert these values every startup
 
 
@@ -371,7 +373,7 @@ module.exports = function(app, options) {
                 WHERE environmentWindSpeedTrue < ?
                 AND  environmentWindSpeedTrue > ?
                 GROUP BY environmentWindAngleTrueGround
-                ORDER BY environmentWindAngleTrueGround`, windspeed, windspeed - interval, function(err, rows){
+                ORDER BY ABS(environmentWindAngleTrueGround)`, windspeed, windspeed - interval, function(err, rows){
 
                   // error will be an Error if one occurred during the query
                   if(err){
