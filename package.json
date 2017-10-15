@@ -1,50 +1,4 @@
 {
-  "_args": [
-    [
-      {
-        "raw": "signalk-polar",
-        "scope": null,
-        "escapedName": "signalk-polar",
-        "name": "signalk-polar",
-        "rawSpec": "",
-        "spec": "latest",
-        "type": "tag"
-      },
-      "/Users/joachim/Downloads/signalk-server-node"
-    ]
-  ],
-  "_from": "signalk-polar@latest",
-  "_id": "signalk-polar@1.0.3",
-  "_inCache": true,
-  "_location": "/signalk-polar",
-  "_nodeVersion": "6.9.2",
-  "_npmOperationalInternal": {
-    "host": "s3://npm-registry-packages",
-    "tmp": "tmp/signalk-polar-1.0.3.tgz_1506793003700_0.3027708444278687"
-  },
-  "_npmUser": {
-    "name": "joabakk",
-    "email": "npm@heiamoss.com"
-  },
-  "_npmVersion": "3.10.9",
-  "_phantomChildren": {},
-  "_requested": {
-    "raw": "signalk-polar",
-    "scope": null,
-    "escapedName": "signalk-polar",
-    "name": "signalk-polar",
-    "rawSpec": "",
-    "spec": "latest",
-    "type": "tag"
-  },
-  "_requiredBy": [
-    "#USER"
-  ],
-  "_resolved": "https://registry.npmjs.org/signalk-polar/-/signalk-polar-1.0.3.tgz",
-  "_shasum": "e633e8d2dd715366663e17c58190e5b287438b5a",
-  "_shrinkwrap": null,
-  "_spec": "signalk-polar",
-  "_where": "/Users/joachim/Downloads/signalk-server-node",
   "author": {
     "name": "Joachim Bakke"
   },
@@ -62,11 +16,7 @@
     "mocha": "^4.0.1",
     "signalk-schema": "0.0.1-3"
   },
-  "directories": {},
-  "dist": {
-    "shasum": "e633e8d2dd715366663e17c58190e5b287438b5a",
-    "tarball": "https://registry.npmjs.org/signalk-polar/-/signalk-polar-1.0.3.tgz"
-  },
+
   "keywords": [
     "signalk-node-server-plugin"
   ],
@@ -84,5 +34,5 @@
   "scripts": {
     "test": "mocha"
   },
-  "version": "1.2.0"
+  "version": "1.3.1"
 }

@@ -289,7 +289,7 @@ module.exports = function(app, options) {
           tack TEXT,
           navigationRateOfTurn DOUBLE DEFAULT NULL)`);
 
-          if(options.entered){
+          if(options.entered && options.entered[0] != null ){
             options.entered.forEach(table => {
               var tableName = table.polarName
 
@@ -298,13 +298,6 @@ module.exports = function(app, options) {
                 environmentWindAngleTrueGround DOUBLE DEFAULT NULL,
                 navigationSpeedThroughWater DOUBLE DEFAULT NULL,
                 performanceVelocityMadeGood DOUBLE DEFAULT NULL)`, function(err, row){
-
-                  db.run(`DELETE FROM ${tableName}`, function(err){
-                    db.run(`VACUUM`)
-                  })
-
-                  // No way of knowing whether the cells are new info or not, otherwise will insert these values every startup
-
 
                   var createTestData = function() {
 
@@ -320,8 +313,22 @@ module.exports = function(app, options) {
                   createTestData(row)
                 })
               })
-            }
+            } else {
+              db.all(`SELECT * FROM sqlite_master WHERE type='table'`, function(err, rows){
+                if(err){
+                  debug("find unused tables error: " + err.message);
+                } else {
+                  rows.forEach(row => {
+                    if(row.name != 'polar'){
+                      debug("table found to remove: " + row.name);
+                      db.run(`DROP TABLE ${row.name}`)
+                    }
 
+                  })
+                }
+              })
+              // delete all user entered polars
+            }
             pushInterval = setInterval(function() {
               //debug("tws: " + tws + " abs twa: " + Math.abs(twa) + " stw: " + stw)
               getTarget(app, tws, twsInterval, Math.abs(twa), twaInterval, stw);
@@ -418,15 +425,33 @@ module.exports = function(app, options) {
 
 
           stop: function() {
+            debug("Stopping")
             unsubscribes.forEach(f => f());
             items.length = items.length - 1;
             engineSKPath = "";
+
+
+            db.all(`SELECT * FROM sqlite_master WHERE type='table'`, function(err, rows){
+              if(err){
+                debug("clear user tables error: " + err.message);
+              } else {
+                rows.forEach(row => {
+                  if(row.name != 'polar'){
+                    debug("table found for removal: " + row.name);
+                    db.run(`DROP TABLE ${row.name}`)
+                  }
+
+                })
+              }
+            })
+
             //db.close();
 
 
             clearInterval(pushInterval);
 
             app.signalk.removeListener('delta', handleDelta);
+            debug("Stopped")
           }
         }
 
