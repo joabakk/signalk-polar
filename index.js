@@ -289,7 +289,7 @@ module.exports = function(app, options) {
           tack TEXT,
           navigationRateOfTurn DOUBLE DEFAULT NULL)`);
 
-          if(options.entered && options.entered[0] != null ){
+          if(options.entered && options.entered.length > 0 ){
             options.entered.forEach(table => {
               var tableName = table.polarName
 
