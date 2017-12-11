@@ -129,7 +129,7 @@ module.exports = function(app, options) {
               else {
                 engineRunning = true;
               }
-              if (Math.abs(rot) < options.rateOfTurnLimit){stableCourse = true;
+              if (Math.abs(rot*60) < options.rateOfTurnLimit){stableCourse = true;
               }
               else stableCourse = false;
 
