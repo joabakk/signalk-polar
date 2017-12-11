@@ -179,12 +179,12 @@ module.exports = function(app, options) {
                           }
 
                           else {
-                            debug("New entry written to db")
+                            //debug("New entry written to db")
                           }
                         });
                       }
                       else {
-                        debug('Data received from db, stw: ' + row.navigationSpeedThroughWater)
+                        //debug('Data received from db, stw: ' + row.navigationSpeedThroughWater)
                       }
                       return
                     });
@@ -310,7 +310,7 @@ module.exports = function(app, options) {
           tack TEXT,
           navigationRateOfTurn DOUBLE DEFAULT NULL)`);
 
-          if(options.entered && options.entered[0] != null ){
+          if(options.entered && options.entered.length > 0 ){
             options.entered.forEach(table => {
               var tableName = table.polarName
 
@@ -319,313 +319,299 @@ module.exports = function(app, options) {
                 environmentWindAngleTrueGround DOUBLE DEFAULT NULL,
                 navigationSpeedThroughWater DOUBLE DEFAULT NULL,
                 performanceVelocityMadeGood DOUBLE DEFAULT NULL)`, function(err, row){
+                  if(err){
+                    debug("add self entered tables error: " + err.message);
+                  } else {
 
-                  var createTestData = function() {
+                    var createTestData = function() {
 
-                    var stmt = db.prepare(`insert into ${tableName} values (?, ?, ?, ?)`);
-
-                    table.polarArray.forEach(entry => {
-                      var windSpeedSI = utilSK.transform(entry.windSpeed, table.windSpeedUnit, 'ms');
-                      var windAngleSI = utilSK.transform(entry.windAngle, table.angleUnit, 'rad');
-                      var boatSpeedSI = utilSK.transform(entry.boatSpeed, table.boatSpeedUnit, 'ms');
-                      stmt.run(windSpeedSI, windAngleSI, boatSpeedSI, getVelocityMadeGood(boatSpeedSI, windAngleSI))
-                    })
-
-                    stmt.finalize();
-                  };
-
-                  createTestData(row)
+                      var stmt = db.prepare(`insert into ${tableName} values (?, ?, ?, ?)`);
+                      table.polarArray.forEach(entry => {
+                        var windSpeedSI = utilSK.transform(entry.windSpeed, table.windSpeedUnit, 'ms');
+                        var windAngleSI = utilSK.transform(entry.windAngle, table.angleUnit, 'rad');
+                        var boatSpeedSI = utilSK.transform(entry.boatSpeed, table.boatSpeedUnit, 'ms');
+                        stmt.run(windSpeedSI, windAngleSI, boatSpeedSI, getVelocityMadeGood(boatSpeedSI, windAngleSI))
+                      })
+                      stmt.finalize();
+                    };
+                    createTestData(row)
+                  }
                 })
               })
             } else {
               db.all(`SELECT * FROM sqlite_master WHERE type='table'`, function(err, rows){
-                if(err){
-                  debug("find unused tables error: " + err.message);
-                } else {
-                  rows.forEach(row => {
-                    if(row.name != 'polar'){
-                      debug("table found to remove: " + row.name);
-                      db.run(`DROP TABLE ${row.name}`)
-                    }
-
-                  })
-                }
-              })
-              // delete all user entered polars
-            }
-            pushInterval = setInterval(function() {
-              //debug("tws: " + tws + " abs twa: " + Math.abs(twa) + " stw: " + stw)
-              getTarget(app, tws, twsInterval, Math.abs(twa), twaInterval, stw);
-              //debug("sent to setInterval:" +  tws + " : " + twsInterval + " : " + Math.abs(twa) + " : " + twaInterval);
-            }, 1000);
-
-            debug("started");
-
-
-
-
-            var obj = {};
-            if (options.engine == 'propulsion.*.revolutions'){
-              items.push(options.engine.replace(/\*/g, options.additional_info));
-              engineSKPath = options.engine.replace(/\*/g, options.additional_info);
-            }
-            else if (options.engine == 'propulsion.*.state'){
-              items.push(options.engine.replace(/\*/g, options.additional_info));
-              engineSKPath = options.engine.replace(/\*/g, options.additional_info);
-            }
-            else if (options.engine == "AlwaysOff"){
-              engineSKPath = "AlwaysOff";
-            }
-            debug("listening for " + util.inspect(items));
-            debug("engineSKPath: " + engineSKPath);
-            items.forEach(element => {
-              obj[element] = true;
-            });
-
-            shouldStore = function(path) {
-              return typeof obj[path] != 'undefined';
-            };
-
-            app.signalk.on('delta', handleDelta);
-
-
-          },
-          registerWithRouter: function(router) {
-            router.get('/polarTable', (req, res) => {
-              res.contentType('application/json');
-              //debug(util.inspect(req.query)); // http://localhost:3000/plugins/signalk-polar/polarTable/?windspeed=4&interval=0.1
-              var windspeed = req.query.windspeed;
-              var interval = req.query.interval;
-              var table = req.query.table?req.query.table:"polar"
-
-              db.all(`SELECT environmentWindAngleTrueGround AS angle,
-                MAX(navigationSpeedThroughWater) AS speed
-                FROM ${table}
-                WHERE environmentWindSpeedTrue < ?
-                AND  environmentWindSpeedTrue > ?
-                GROUP BY environmentWindAngleTrueGround
-                ORDER BY ABS(environmentWindAngleTrueGround)`, windspeed, windspeed - interval, function(err, rows){
-
-                  // error will be an Error if one occurred during the query
-                  if(err){
-                    debug("registerWithRouter error: " + err.message);
-                  }
-                  res.send(JSON.stringify(rows))
-                }
-              )
-            })
-            router.get('/listPolarTables', (req, res) => { //list all polar tables (both sqlite and user entered)
-              res.contentType('application/json');
-
-              db.serialize(function () {
-                db.all("select name from sqlite_master where type='table'", function (err, tables) {
-                  // error will be an Error if one occurred during the query
-                  if(err){
-                    debug("registerWithRouter error: " + err.message);
-                  }
-                  res.send(JSON.stringify(tables))
-                });
-              });
-
-            })
-
-            router.get('/listWindSpeeds', (req, res) => { //list all wind speeds for a polar diagram
-              res.contentType('application/json');
-              var table = req.query.table
-
-              db.serialize(function () {
-                db.all(`SELECT DISTINCT round(environmentWindSpeedTrue,1) as windSpeed FROM ${table} ORDER BY windSpeed ASC`, function (err, tables) {
-                  // error will be an Error if one occurred during the query
-                  if(err){
-                    debug("registerWithRouter error: " + err.message);
-                  }
-                  res.send(JSON.stringify(tables))
-                });
-              });
-
-            })
-
-          },
-
-
-          stop: function() {
-            debug("Stopping")
-            unsubscribes.forEach(f => f());
-            items.length = items.length - 1;
-            engineSKPath = "";
-
-
-            db.all(`SELECT * FROM sqlite_master WHERE type='table'`, function(err, rows){
               if(err){
-                debug("clear user tables error: " + err.message);
-              } else {
-                rows.forEach(row => {
-                  if(row.name != 'polar'){
-                    debug("table found for removal: " + row.name);
-                    db.run(`DROP TABLE ${row.name}`)
-                  }
-
-                })
-              }
-            })
-
-            //db.close();
-
-
-            clearInterval(pushInterval);
-
-            app.signalk.removeListener('delta', handleDelta);
-            debug("Stopped")
+              debug("find unused tables error: " + err.message);
+            } else {
+            rows.forEach(row => {
+            if(row.name != 'polar'){
+            debug("table found to remove: " + row.name);
+            db.run(`DROP TABLE ${row.name}`)
           }
+
+        })
+      }
+    })
+    // delete all user entered polars
+  }
+  pushInterval = setInterval(function() {
+    //debug("tws: " + tws + " abs twa: " + Math.abs(twa) + " stw: " + stw)
+    getTarget(app, tws, twsInterval, Math.abs(twa), twaInterval, stw);
+    //debug("sent to setInterval:" +  tws + " : " + twsInterval + " : " + Math.abs(twa) + " : " + twaInterval);
+  }, 1000);
+
+  debug("started");
+
+
+
+
+  var obj = {};
+  if (options.engine == 'propulsion.*.revolutions'){
+    items.push(options.engine.replace(/\*/g, options.additional_info));
+    engineSKPath = options.engine.replace(/\*/g, options.additional_info);
+  }
+  else if (options.engine == 'propulsion.*.state'){
+    items.push(options.engine.replace(/\*/g, options.additional_info));
+    engineSKPath = options.engine.replace(/\*/g, options.additional_info);
+  }
+  else if (options.engine == "AlwaysOff"){
+    engineSKPath = "AlwaysOff";
+  }
+  //debug("listening for " + util.inspect(items));
+  //debug("engineSKPath: " + engineSKPath);
+  items.forEach(element => {
+    obj[element] = true;
+  });
+
+  shouldStore = function(path) {
+    return typeof obj[path] != 'undefined';
+  };
+
+  app.signalk.on('delta', handleDelta);
+
+
+},
+registerWithRouter: function(router) {
+  router.get('/polarTable', (req, res) => {
+    res.contentType('application/json');
+    //debug(util.inspect(req.query)); // http://localhost:3000/plugins/signalk-polar/polarTable/?windspeed=4&interval=0.1
+    var windspeed = req.query.windspeed;
+    var interval = req.query.interval;
+    var table = req.query.table?req.query.table:"polar" //"polar" is default db
+
+    db.all(`SELECT environmentWindAngleTrueGround AS angle,
+      MAX(navigationSpeedThroughWater) AS speed
+      FROM ${table}
+      WHERE environmentWindSpeedTrue < ?
+      AND  environmentWindSpeedTrue > ?
+      GROUP BY environmentWindAngleTrueGround
+      ORDER BY ABS(environmentWindAngleTrueGround)`, windspeed, windspeed - interval, function(err, rows){
+
+        // error will be an Error if one occurred during the query
+        if(err){
+          debug("registerWithRouter error: " + err.message);
         }
+        res.send(JSON.stringify(rows))
+      }
+    )
+  })
+  router.get('/listPolarTables', (req, res) => { //list all polar tables (both sqlite and user entered)
+    res.contentType('application/json');
 
-        function getTarget(app, trueWindSpeed, windInterval, trueWindAngle, twaInterval, speedThroughWater) {
-          //debug("getTarget called")
-
-          db.get(`SELECT * FROM polar
-            WHERE environmentWindSpeedTrue < ?
-            AND environmentWindSpeedTrue > ?
-            ORDER BY performanceVelocityMadeGood
-            DESC`, trueWindSpeed, trueWindSpeed - windInterval, function(err, row){
-              // error will be an Error if one occurred during the query
-              if(err){
-                debug("tack error: " + err.message);
-              }
-
-              if (row){
-
-                //debug("target tack angle: " + row.environmentWindAngleTrueGround + " speed: " + row.navigationSpeedThroughWater);
-                pushDelta(app,  {"key": "performance.beatAngle", "value": Math.abs(row.environmentWindAngleTrueGround)});
-                pushDelta(app,  {"key": "performance.beatAngleTargetSpeed", "value": row.navigationSpeedThroughWater});
-                pushDelta(app,  {"key": "performance.beatAngleVelocityMadeGood", "value": row.performanceVelocityMadeGood});
-                if (Math.abs(trueWindAngle) < Math.PI/2){
-                  pushDelta(app,  {"key": "performance.targetAngle", "value": Math.abs(row.environmentWindAngleTrueGround)});
-                  pushDelta(app,  {"key": "performance.targetSpeed", "value": row.navigationSpeedThroughWater});
-                }
-
-              }
-            }
-          );
-
-          db.get(`SELECT * FROM polar
-            WHERE environmentWindSpeedTrue < ?
-            AND environmentWindSpeedTrue > ?
-            ORDER BY performanceVelocityMadeGood
-            ASC`, trueWindSpeed, trueWindSpeed - windInterval, function(err, row){
-
-              // error will be an Error if one occurred during the query
-              if(err){
-                debug("gybe error: " + err.message);
-              }
-
-              if (row){
-
-                //debug("target gybe angle: " + row.environmentWindAngleTrueGround + " speed: " + row.navigationSpeedThroughWater);
-                pushDelta(app,  {"key": "performance.gybeAngle", "value": Math.abs(row.environmentWindAngleTrueGround)});
-                pushDelta(app,  {"key": "performance.gybeAngleTargetSpeed", "value": row.navigationSpeedThroughWater});
-                pushDelta(app,  {"key": "performance.gybeAngleVelocityMadeGood", "value": Math.abs(row.performanceVelocityMadeGood)});
-                if (Math.abs(trueWindAngle) > Math.PI/2){
-                  pushDelta(app,  {"key": "performance.targetAngle", "value": Math.abs(row.environmentWindAngleTrueGround)});
-                  pushDelta(app,  {"key": "performance.targetSpeed", "value": row.navigationSpeedThroughWater});
-                }
-
-
-              }
-            }
-          );
-
-
-          db.get(`SELECT * FROM polar
-            WHERE environmentWindSpeedTrue < ?
-            AND ABS(environmentWindAngleTrueGround) < ?
-            AND ABS(environmentWindAngleTrueGround) > ?
-            ORDER BY navigationSpeedThroughWater
-            DESC`, trueWindSpeed, trueWindAngle, trueWindAngle - twaInterval, function (err, row) {
-
-              // error will be an Error if one occurred during the query
-              if(err){
-                debug("polar error: " + err.message);
-              }
-
-              // results will contain the results of the query
-              if (row){
-                //debug("polarSpeed: " + row.navigationSpeedThroughWater + " ratio: " + speedThroughWater/row.navigationSpeedThroughWater)
-                pushDelta(app,  {"key": "performance.polarSpeed", "value": row.navigationSpeedThroughWater});
-                pushDelta(app,  {"key": "performance.polarSpeedRatio", "value": speedThroughWater/row.navigationSpeedThroughWater});
-              }
-            }
-          );
+    db.serialize(function () {
+      db.all("select name from sqlite_master where type='table'", function (err, tables) {
+        // error will be an Error if one occurred during the query
+        if(err){
+          debug("registerWithRouter error: " + err.message);
         }
+        res.send(JSON.stringify(tables))
+      });
+    });
+
+  })
+
+  router.get('/listWindSpeeds', (req, res) => { //list all wind speeds for a polar diagram
+    res.contentType('application/json');
+    var table = req.query.table
+
+    db.serialize(function () {
+      db.all(`SELECT DISTINCT round(environmentWindSpeedTrue,1) as windSpeed FROM ${table} ORDER BY windSpeed ASC`, function (err, tables) {
+        // error will be an Error if one occurred during the query
+        if(err){
+          debug("registerWithRouter error: " + err.message);
+        }
+        res.send(JSON.stringify(tables))
+      });
+    });
+
+  })
+
+},
+
+
+stop: function() {
+  debug("Stopping")
+  unsubscribes.forEach(f => f());
+  items.length = items.length - 1;
+  engineSKPath = "";
+
+  //db.close();
+
+
+  clearInterval(pushInterval);
+
+  app.signalk.removeListener('delta', handleDelta);
+  debug("Stopped")
+}
+}
+
+function getTarget(app, trueWindSpeed, windInterval, trueWindAngle, twaInterval, speedThroughWater) {
+  //debug("getTarget called")
+
+  db.get(`SELECT * FROM polar
+    WHERE environmentWindSpeedTrue < ?
+    AND environmentWindSpeedTrue > ?
+    ORDER BY performanceVelocityMadeGood
+    DESC`, trueWindSpeed, trueWindSpeed - windInterval, function(err, row){
+      // error will be an Error if one occurred during the query
+      if(err){
+        debug("tack error: " + err.message);
       }
 
-      function getTrueWindAngle(speed, trueWindSpeed, apparentWindspeed, windAngle) {
-        //cosine rule
-        // a2=b2+c2−2bc⋅cos(A) where
-        //a is apparent wind speed,
-        //b is boat speed and
-        //c is true wind speed
+      if (row){
 
-        var aSquared = Math.pow(apparentWindspeed,2);
-        var bSquared = Math.pow(trueWindSpeed,2);
-        var cSquared = Math.pow(speed,2);
-        var cosA =  (aSquared - bSquared - cSquared) / (2 * trueWindSpeed * speed);
-
-        if (windAngle === 0) {
-          return 0;
-        }
-        else if (windAngle == Math.PI) {
-          return Math.PI;
+        //debug("target tack angle: " + row.environmentWindAngleTrueGround + " speed: " + row.navigationSpeedThroughWater);
+        pushDelta(app,  {"key": "performance.beatAngle", "value": Math.abs(row.environmentWindAngleTrueGround)});
+        pushDelta(app,  {"key": "performance.beatAngleTargetSpeed", "value": row.navigationSpeedThroughWater});
+        pushDelta(app,  {"key": "performance.beatAngleVelocityMadeGood", "value": row.performanceVelocityMadeGood});
+        if (Math.abs(trueWindAngle) < Math.PI/2){
+          pushDelta(app,  {"key": "performance.targetAngle", "value": Math.abs(row.environmentWindAngleTrueGround)});
+          pushDelta(app,  {"key": "performance.targetSpeed", "value": row.navigationSpeedThroughWater});
         }
 
-        else if (cosA > 1 || cosA < -1){
-          debug("invalid triangle");
-          return null;
+      }
+    }
+  );
+
+  db.get(`SELECT * FROM polar
+    WHERE environmentWindSpeedTrue < ?
+    AND environmentWindSpeedTrue > ?
+    ORDER BY performanceVelocityMadeGood
+    ASC`, trueWindSpeed, trueWindSpeed - windInterval, function(err, row){
+
+      // error will be an Error if one occurred during the query
+      if(err){
+        debug("gybe error: " + err.message);
+      }
+
+      if (row){
+
+        //debug("target gybe angle: " + row.environmentWindAngleTrueGround + " speed: " + row.navigationSpeedThroughWater);
+        pushDelta(app,  {"key": "performance.gybeAngle", "value": Math.abs(row.environmentWindAngleTrueGround)});
+        pushDelta(app,  {"key": "performance.gybeAngleTargetSpeed", "value": row.navigationSpeedThroughWater});
+        pushDelta(app,  {"key": "performance.gybeAngleVelocityMadeGood", "value": Math.abs(row.performanceVelocityMadeGood)});
+        if (Math.abs(trueWindAngle) > Math.PI/2){
+          pushDelta(app,  {"key": "performance.targetAngle", "value": Math.abs(row.environmentWindAngleTrueGround)});
+          pushDelta(app,  {"key": "performance.targetSpeed", "value": row.navigationSpeedThroughWater});
         }
 
-        else {
-          var calc;
-          if (windAngle > 0 && windAngle < Math.PI){ //Starboard
-            calc = Math.acos(cosA);
-          } else if (windAngle < 0 && windAngle > -Math.PI){ //Port
-            calc = -Math.acos(cosA);
+
+      }
+    }
+  );
+
+
+  db.get(`SELECT * FROM polar
+    WHERE environmentWindSpeedTrue < ?
+    AND ABS(environmentWindAngleTrueGround) < ?
+    AND ABS(environmentWindAngleTrueGround) > ?
+    ORDER BY navigationSpeedThroughWater
+    DESC`, trueWindSpeed, trueWindAngle, trueWindAngle - twaInterval, function (err, row) {
+
+      // error will be an Error if one occurred during the query
+      if(err){
+        debug("polar error: " + err.message);
+      }
+
+      // results will contain the results of the query
+      if (row){
+        //debug("polarSpeed: " + row.navigationSpeedThroughWater + " ratio: " + speedThroughWater/row.navigationSpeedThroughWater)
+        pushDelta(app,  {"key": "performance.polarSpeed", "value": row.navigationSpeedThroughWater});
+        pushDelta(app,  {"key": "performance.polarSpeedRatio", "value": speedThroughWater/row.navigationSpeedThroughWater});
+      }
+    }
+  );
+}
+}
+
+function getTrueWindAngle(speed, trueWindSpeed, apparentWindspeed, windAngle) {
+  //cosine rule
+  // a2=b2+c2−2bc⋅cos(A) where
+  //a is apparent wind speed,
+  //b is boat speed and
+  //c is true wind speed
+
+  var aSquared = Math.pow(apparentWindspeed,2);
+  var bSquared = Math.pow(trueWindSpeed,2);
+  var cSquared = Math.pow(speed,2);
+  var cosA =  (aSquared - bSquared - cSquared) / (2 * trueWindSpeed * speed);
+
+  if (windAngle === 0) {
+    return 0;
+  }
+  else if (windAngle == Math.PI) {
+    return Math.PI;
+  }
+
+  else if (cosA > 1 || cosA < -1){
+    debug("invalid triangle");
+    return null;
+  }
+
+  else {
+    var calc;
+    if (windAngle > 0 && windAngle < Math.PI){ //Starboard
+      calc = Math.acos(cosA);
+    } else if (windAngle < 0 && windAngle > -Math.PI){ //Port
+      calc = -Math.acos(cosA);
+    }
+    return calc;
+  }
+}
+
+function getTrueWindSpeed(speed, windSpeed, windAngle) {
+  //debug("getTrueWindSpeed called")
+  var apparentX = Math.cos(windAngle) * windSpeed;
+  var apparentY = Math.sin(windAngle) * windSpeed;
+  return Math.sqrt(Math.pow(apparentY, 2) + Math.pow(-speed + apparentX, 2));
+}
+
+function getVelocityMadeGood(speed, trueWindAngle) {
+  //debug("getVelocityMadeGood called")
+  return Math.cos(trueWindAngle) * speed;
+}
+
+function pushDelta(app, command_json) {
+  var key = command_json["key"]
+  var value = command_json["value"]
+
+
+  const data = {
+    context: "vessels." + app.selfId,
+    updates: [
+      {
+        source: {"type":"server","sentence":"none","label":"calculated","talker":"polar-plugin"},
+        timestamp: utilSK.timestamp(),
+        values: [
+          {
+            'path': key,
+            'value': value
           }
-          return calc;
-        }
+        ]
       }
+    ],
+  }
 
-      function getTrueWindSpeed(speed, windSpeed, windAngle) {
-        //debug("getTrueWindSpeed called")
-        var apparentX = Math.cos(windAngle) * windSpeed;
-        var apparentY = Math.sin(windAngle) * windSpeed;
-        return Math.sqrt(Math.pow(apparentY, 2) + Math.pow(-speed + apparentX, 2));
-      }
-
-      function getVelocityMadeGood(speed, trueWindAngle) {
-        //debug("getVelocityMadeGood called")
-        return Math.cos(trueWindAngle) * speed;
-      }
-
-      function pushDelta(app, command_json) {
-        var key = command_json["key"]
-        var value = command_json["value"]
-
-
-        const data = {
-          context: "vessels." + app.selfId,
-          updates: [
-            {
-              source: {"type":"server","sentence":"none","label":"calculated","talker":"polar-plugin"},
-              timestamp: utilSK.timestamp(),
-              values: [
-                {
-                  'path': key,
-                  'value': value
-                }
-              ]
-            }
-          ],
-        }
-
-        app.signalk.addDelta(data)
-        return
-      }
+  app.signalk.addDelta(data)
+  return
+}
