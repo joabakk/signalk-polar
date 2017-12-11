@@ -17,7 +17,7 @@
 const Bacon = require('baconjs');
 const debug = require('debug')('signalk-polar');
 const util = require('util');
-const utilSK = require('@signalk/nmea0183-utilities');
+const utilSK = require('nmea0183-utilities');
 const express = require("express");
 const _ = require('lodash');
 const sqlite3 = require('sqlite3');
@@ -246,6 +246,27 @@ module.exports = function(app, options) {
                   title: "Name of polar ('design', 'lastYear' etc)",
                   default: "Design"
                 },
+                angleUnit: {
+                  type: "string",
+                  title: "Unit for wind angle",
+                  default: "deg",
+                  "enum": ["rad", "deg"],
+                  enumNames: ["Radians", "Degrees"]
+                },
+                windSpeedUnit: {
+                  type: "string",
+                  title: "Unit for wind speed",
+                  default: "ms",
+                  "enum": ["knots", "ms", "kph", "mph"],
+                  enumNames: ["Knots", "m/s", "km/h", "mph"]
+                },
+                boatSpeedUnit: {
+                  type: "string",
+                  title: "Unit for boat speed",
+                  default: "kn",
+                  "enum": ["knots", "ms", "kph", "mph"],
+                  enumNames: ["Knots", "m/s", "km/h", "mph"]
+                },
                 polarArray: {
                   type: "array",
                   title: "Polar values",
@@ -254,15 +275,15 @@ module.exports = function(app, options) {
                     type: "object",
                     properties: {
                       "windSpeed": {
-                        title: "wind speed (m/s)",
+                        title: "wind speed",
                         type: "number",
                       },
                       "windAngle": {
-                        title: "True wind angle (radians)",
+                        title: "True wind angle",
                         type: "number"
                       },
                       "boatSpeed": {
-                        title: "Boat speed (m/s)",
+                        title: "Boat speed",
                         type: "number"
                       }
                     }
@@ -289,7 +310,7 @@ module.exports = function(app, options) {
           tack TEXT,
           navigationRateOfTurn DOUBLE DEFAULT NULL)`);
 
-          if(options.entered && options.entered.length > 0 ){
+          if(options.entered && options.entered[0] != null ){
             options.entered.forEach(table => {
               var tableName = table.polarName
 
@@ -304,7 +325,10 @@ module.exports = function(app, options) {
                     var stmt = db.prepare(`insert into ${tableName} values (?, ?, ?, ?)`);
 
                     table.polarArray.forEach(entry => {
-                      stmt.run(entry.windSpeed, entry.windAngle, entry.boatSpeed, getVelocityMadeGood(entry.boatSpeed, entry.windAngle))
+                      var windSpeedSI = utilSK.transform(entry.windSpeed, table.windSpeedUnit, 'ms');
+                      var windAngleSI = utilSK.transform(entry.windAngle, table.angleUnit, 'rad');
+                      var boatSpeedSI = utilSK.transform(entry.boatSpeed, table.boatSpeedUnit, 'ms');
+                      stmt.run(windSpeedSI, windAngleSI, boatSpeedSI, getVelocityMadeGood(boatSpeedSI, windAngleSI))
                     })
 
                     stmt.finalize();
