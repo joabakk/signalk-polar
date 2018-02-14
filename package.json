@@ -10,7 +10,7 @@
     "chai": "^4.0.0",
     "chai-things": "^0.2.0",
     "debug": "^3.0.1",
-    "mocha": "^4.1.0",
+    "mocha": "^5.0.1",
     "signalk-schema": "0.0.1-3"
   },
   "directories": {},
