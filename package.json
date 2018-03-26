@@ -2,7 +2,7 @@
   "dependencies": {
     "baconjs": "^2.0.0",
     "debug": "^3.0.1",
-    "@signalk/nmea0183-utilities": "^0.3.2",
+    "@signalk/nmea0183-utilities": "^0.4.0",
     "sqlite3": "^4.0.0"
   },
   "description": "Signal K server plugin to store and retrieve polar data with sqlite3 db",
@@ -10,8 +10,7 @@
     "chai": "^4.0.0",
     "chai-things": "^0.2.0",
     "debug": "^3.0.1",
-    "mocha": "^5.0.1",
-    "signalk-schema": "0.0.1-3"
+    "mocha": "^5.0.1"
   },
   "directories": {},
   "dist": {
@@ -35,5 +34,5 @@
   "scripts": {
     "test": "mocha"
   },
-  "version": "1.5.0"
+  "version": "1.6.0"
 }
