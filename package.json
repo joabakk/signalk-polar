@@ -1,8 +1,9 @@
 {
   "dependencies": {
+    "@signalk/nmea0183-utilities": "^0.6.0",
     "baconjs": "^2.0.0",
     "debug": "^3.0.1",
-    "@signalk/nmea0183-utilities": "^0.6.0",
+    "express": "^4.16.3",
     "sqlite3": "^4.0.0"
   },
   "description": "Signal K server plugin to store and retrieve polar data with sqlite3 db",
@@ -34,5 +35,5 @@
   "scripts": {
     "test": "mocha"
   },
-  "version": "1.6.0"
+  "version": "1.6.1"
 }
