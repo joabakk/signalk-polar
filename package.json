@@ -22,6 +22,9 @@
     "signalk-node-server-plugin"
   ],
   "license": "ISC",
+  "author": {
+		"name": "Joachim Bakke"
+	},
   "main": "index.js",
   "maintainers": [
     {
