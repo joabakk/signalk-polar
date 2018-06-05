@@ -83,10 +83,21 @@ module.exports = function(app, options) {
                   awaTimeSeconds = awaTime.getTime() / 1000;
                   awa = pathValue.value;
                 }
+                if (pathValue.path == "environment.wind.angleTrueGround"){
+                  twa = pathValue.value;
+                }
+                else {
+                  twa = getTrueWindAngle(stw, tws, aws, awa);
+                }
                 if (pathValue.path == "environment.wind.speedApparent"){
                   var awsTime = new Date(update.timestamp);
                   awsTimeSeconds = awsTime.getTime() / 1000;
                   aws = pathValue.value;
+                }
+                if (pathValue.path == "environment.wind.speedTrue"){
+                  tws = pathValue.value;
+                } else {
+                  tws = getTrueWindSpeed(stw, aws, awa);
                 }
                 if (pathValue.path == "navigation.courseOverGroundTrue"){
                   var cogTime = new Date(update.timestamp);
@@ -97,6 +108,12 @@ module.exports = function(app, options) {
                   var sogTime = new Date(update.timestamp);
                   sogTimeSeconds = sogTime.getTime() / 1000;
                   sog = pathValue.value;
+                }
+                if (pathValue.path == "performance.velocityMadeGood"){
+                  vmg = pathValue.value;
+                }
+                else {
+                  vmg = getVelocityMadeGood(stw, twa);
                 }
                 var engTime;
                 if (engineSKPath != "AlwaysOff"){
@@ -134,10 +151,7 @@ module.exports = function(app, options) {
               else stableCourse = false;
 
               if (timediff < maxInterval && engineRunning === false && secondsSinceStore < timeMax - 1){
-                //debug("sailing, time to get values")
-                tws = getTrueWindSpeed(stw, aws, awa);
-                twa = getTrueWindAngle(stw, tws, aws, awa);
-                vmg = getVelocityMadeGood(stw, twa);
+                //debug("sailing")
 
                 if (secondsSincePush < timeMax - 1){
                   pushDelta(app,  {"key": "environment.wind.speedTrue", "value": tws});
