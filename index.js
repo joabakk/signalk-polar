@@ -83,7 +83,7 @@ module.exports = function(app, options) {
                   awaTimeSeconds = awaTime.getTime() / 1000;
                   awa = pathValue.value;
                 }
-                if (pathValue.path == "environment.wind.angleTrueGround"){
+                if (pathValue.path == "environment.wind.angleTrueWater"){
                   twa = pathValue.value;
                 }
                 else {
