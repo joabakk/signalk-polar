@@ -578,7 +578,7 @@ function getTrueWindAngle(speed, trueWindSpeed, apparentWindspeed, windAngle) {
   }
 
   else if (cosA > 1 || cosA < -1){
-    debug("invalid triangle");
+    debug("invalid triangle aws: " + apparentWindspeed + " tws: " + trueWindSpeed + "bsp: " + speed);
     return null;
   }
 
