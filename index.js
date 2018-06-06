@@ -137,10 +137,10 @@ module.exports = function(app, options) {
                 if (engineSKPath == "AlwaysOff"){
                   engineRunning = false;
                 }
-                else if ((engineSKPath.indexOf(".state") > -1) && (eng != '[object Object]' && eng != 'started') || (timeMax - engTimeSeconds) > 10){ //state != 'started' or very old engine state data
+                else if ((engineSKPath.indexOf(".state") > -1) && (eng != '[object Object]' && eng != 'started')){ //state != 'started' 
                 engineRunning = false;
               }
-              else if ((engineSKPath.indexOf(".revolutions") > -1 ) && (eng <= 1  || (timeMax - engTimeSeconds) > 10)){ //RPM = 0 or very old RPM data
+              else if ((engineSKPath.indexOf(".revolutions") > -1 ) && (eng <= 1)){ //RPM = 0
                 engineRunning = false;
               }
               else {
