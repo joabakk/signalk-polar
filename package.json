@@ -2,7 +2,7 @@
   "dependencies": {
     "@signalk/nmea0183-utilities": "^0.6.0",
     "baconjs": "^2.0.0",
-    "debug": "^3.0.1",
+    "debug": "^4.0.0",
     "express": "^4.16.3",
     "sqlite3": "^4.0.0"
   },
