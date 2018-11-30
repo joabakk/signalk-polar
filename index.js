@@ -71,43 +71,48 @@ module.exports = function(app, options) {
                   var rotTime = new Date(update.timestamp);
                   rotTimeSeconds = rotTime.getTime() / 1000; //need to convert to seconds for comparison
                   rot = pathValue.value;
-                } else if (pathValue.path == "navigation.speedThroughWater"){
+                }
+                if (pathValue.path == "navigation.speedThroughWater"){
                   var stwTime = new Date(update.timestamp);
                   stwTimeSeconds = stwTime.getTime() / 1000;
                   stw = pathValue.value;
-                } else if (pathValue.path == "environment.wind.angleApparent"){
+                }
+                if (pathValue.path == "environment.wind.angleApparent"){
                   var awaTime = new Date(update.timestamp);
                   awaTimeSeconds = awaTime.getTime() / 1000;
                   awa = pathValue.value;
-                } else if (pathValue.path == "environment.wind.speedApparent"){
+                }
+                if (pathValue.path == "environment.wind.speedApparent"){
                   var awsTime = new Date(update.timestamp);
                   awsTimeSeconds = awsTime.getTime() / 1000;
                   aws = pathValue.value;
-                } else if (pathValue.path == "navigation.courseOverGroundTrue"){
+                }
+                if (pathValue.path == "navigation.courseOverGroundTrue"){
                   var cogTime = new Date(update.timestamp);
                   cogTimeSeconds = cogTime.getTime() / 1000;
                   cog = pathValue.value;
-                } else if (pathValue.path == "navigation.speedOverGround"){
+                }
+                if (pathValue.path == "navigation.speedOverGround"){
                   var sogTime = new Date(update.timestamp);
                   sogTimeSeconds = sogTime.getTime() / 1000;
                   sog = pathValue.value;
-                } else {
-                  if (pathValue.path == "environment.wind.angleTrueGround"){
-                    twa = pathValue.value;
-                  } else {
-                    twa = getTrueWindAngle(stw, tws, aws, awa);
-                  }
-                  if (pathValue.path == "environment.wind.speedTrue"){
-                    tws = pathValue.value;
-                  } else {
-                    tws = getTrueWindSpeed(stw, aws, awa);
-                  }
-                  if (pathValue.path == "performance.velocityMadeGood"){
-                    vmg = pathValue.value;
-                  } else {
-                    vmg = getVelocityMadeGood(stw, twa);
-                  }
                 }
+                if (pathValue.path == "environment.wind.angleTrueGround"){
+                  twa = pathValue.value;
+                } else {
+                  twa = getTrueWindAngle(stw, tws, aws, awa);
+                }
+                if (pathValue.path == "environment.wind.speedTrue"){
+                  tws = pathValue.value;
+                } else {
+                  tws = getTrueWindSpeed(stw, aws, awa);
+                }
+                if (pathValue.path == "performance.velocityMadeGood"){
+                  vmg = pathValue.value;
+                } else {
+                  vmg = getVelocityMadeGood(stw, twa);
+                }
+
 
                 var engTime;
                 if (engineSKPath != "AlwaysOff"){
@@ -158,7 +163,7 @@ module.exports = function(app, options) {
 
                 //debug(`SELECT * FROM polar Where environmentWindSpeedTrue <= `+ tws + ` AND environmentWindAngleTrueGround = ` + twa + ` AND navigationSpeedThroughWater >= `+ stw )
 
-                db.each(`SELECT * FROM polar
+                db.get(`SELECT * FROM polar
                   Where environmentWindSpeedTrue <= ?
                   AND environmentWindAngleTrueGround = ?
                   AND navigationSpeedThroughWater >= ?` ,tws, twa, stw, (err,row) => {
@@ -476,7 +481,7 @@ module.exports = function(app, options) {
         function getTarget(app, trueWindSpeed, windInterval, trueWindAngle, twaInterval, speedThroughWater) {
           //debug("getTarget called")
 
-          db.each(`SELECT * FROM polar
+          db.get(`SELECT * FROM polar
             WHERE environmentWindSpeedTrue < ?
             AND environmentWindSpeedTrue > ?
             ORDER BY performanceVelocityMadeGood
@@ -501,7 +506,7 @@ module.exports = function(app, options) {
             }
           );
 
-          db.each(`SELECT * FROM polar
+          db.get(`SELECT * FROM polar
             WHERE environmentWindSpeedTrue < ?
             AND environmentWindSpeedTrue > ?
             ORDER BY performanceVelocityMadeGood
@@ -529,7 +534,7 @@ module.exports = function(app, options) {
           );
 
 
-          db.each(`SELECT * FROM polar
+          db.get(`SELECT * FROM polar
             WHERE environmentWindSpeedTrue < ?
             AND ABS(environmentWindAngleTrueGround) < ?
             AND ABS(environmentWindAngleTrueGround) > ?
