@@ -137,7 +137,7 @@ module.exports = function(app, options) {
                 if (engineSKPath == "AlwaysOff"){
                   engineRunning = false;
                 }
-                else if ((engineSKPath.indexOf(".state") > -1) && (eng != '[object Object]' && eng != 'started')){ //state != 'started' 
+                else if ((engineSKPath.indexOf(".state") > -1) && (eng != '[object Object]' && eng != 'started')){ //state != 'started'
                 engineRunning = false;
               }
               else if ((engineSKPath.indexOf(".revolutions") > -1 ) && (eng <= 1)){ //RPM = 0
@@ -164,7 +164,7 @@ module.exports = function(app, options) {
 
                 //debug(`SELECT * FROM polar Where environmentWindSpeedTrue <= `+ tws + ` AND environmentWindAngleTrueGround = ` + twa + ` AND navigationSpeedThroughWater >= `+ stw )
 
-                db.get(`SELECT * FROM polar
+                db.each(`SELECT * FROM polar
                   Where environmentWindSpeedTrue <= ?
                   AND environmentWindAngleTrueGround = ?
                   AND navigationSpeedThroughWater >= ?` ,tws, twa, stw, (err,row) => {
@@ -482,7 +482,7 @@ stop: function() {
 function getTarget(app, trueWindSpeed, windInterval, trueWindAngle, twaInterval, speedThroughWater) {
   //debug("getTarget called")
 
-  db.get(`SELECT * FROM polar
+  db.each(`SELECT * FROM polar
     WHERE environmentWindSpeedTrue < ?
     AND environmentWindSpeedTrue > ?
     ORDER BY performanceVelocityMadeGood
@@ -507,7 +507,7 @@ function getTarget(app, trueWindSpeed, windInterval, trueWindAngle, twaInterval,
     }
   );
 
-  db.get(`SELECT * FROM polar
+  db.each(`SELECT * FROM polar
     WHERE environmentWindSpeedTrue < ?
     AND environmentWindSpeedTrue > ?
     ORDER BY performanceVelocityMadeGood
@@ -535,7 +535,7 @@ function getTarget(app, trueWindSpeed, windInterval, trueWindAngle, twaInterval,
   );
 
 
-  db.get(`SELECT * FROM polar
+  db.each(`SELECT * FROM polar
     WHERE environmentWindSpeedTrue < ?
     AND ABS(environmentWindAngleTrueGround) < ?
     AND ABS(environmentWindAngleTrueGround) > ?
