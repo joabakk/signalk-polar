@@ -485,7 +485,7 @@ module.exports = function(app, options) {
   function getTarget(app, trueWindSpeed, windInterval, trueWindAngle, twaInterval, speedThroughWater) {
     //debug("getTarget called")
 
-    db.each(`SELECT * FROM polar
+    db.get(`SELECT * FROM polar
       WHERE environmentWindSpeedTrue < ?
       AND environmentWindSpeedTrue > ?
       ORDER BY performanceVelocityMadeGood
@@ -510,7 +510,7 @@ module.exports = function(app, options) {
       }
     );
 
-    db.each(`SELECT * FROM polar
+    db.get(`SELECT * FROM polar
       WHERE environmentWindSpeedTrue < ?
       AND environmentWindSpeedTrue > ?
       ORDER BY performanceVelocityMadeGood
@@ -538,7 +538,7 @@ module.exports = function(app, options) {
     );
 
 
-    db.each(`SELECT * FROM polar
+    db.get(`SELECT * FROM polar
       WHERE environmentWindSpeedTrue < ?
       AND ABS(environmentWindAngleTrueGround) < ?
       AND ABS(environmentWindAngleTrueGround) > ?
