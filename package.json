@@ -1,7 +1,7 @@
 {
   "dependencies": {
     "@signalk/nmea0183-utilities": "^0.6.0",
-    "baconjs": "^2.0.0",
+    "baconjs": "^3.0.0",
     "debug": "^3.0.1",
     "express": "^4.16.3",
     "lodash": "^4.17.11",
