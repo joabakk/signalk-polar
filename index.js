@@ -21,6 +21,7 @@ const express = require("express");
 const _ = require('lodash');
 const sqlite3 = require('sqlite3');
 const uuidv4 = require('uuid/v4')
+const parse = require('csv-parse')
 var db,json;
 var pushInterval;
 
@@ -70,7 +71,7 @@ module.exports = function(app, options) {
         if(update.values && typeof update.source != 'undefined' && (update.source.talker != 'signalk-polar')) {
 
           var points = update.values.reduce((acc, pathValue, options) => {
-            if(typeof pathValue.value === 'number') {//propulsion.*.state is not number!
+            if(typeof pathValue.value === 'number' && engineSKPath != "doNotStore") {//propulsion.*.state is not number!
               var storeIt = shouldStore(pathValue.path);
 
 
@@ -122,7 +123,18 @@ module.exports = function(app, options) {
                   vmg = pathValue.value;
                   var vmgTime = new Date(update.timestamp);
                   vmgTimeSeconds = vmgTime.getTime() / 1000
-                  var engTime;
+                }
+                var engTime;
+                if (engineSKPath != "AlwaysOff" && engineSKPath != "doNotStore"){
+                  if (pathValue.path == engineSKPath){
+                    engTime = new Date(update.timestamp);
+                    engTimeSeconds = engTime.getTime() / 1000;
+                    eng = pathValue.value;
+                  }
+                }
+                else {
+                  engTime = new Date(update.timestamp); //take the last timestamp
+                  engTimeSeconds = engTime.getTime() / 1000;
                 }
 
 
@@ -134,11 +146,11 @@ module.exports = function(app, options) {
                 //app.debug("time diff " + timediff)
 
 
-                if ((engineSKPath.indexOf(".state") > -1) && (eng != '[object Object]' && eng != 'started')){
+                if ((engineSKPath.indexOf(".state") > -1) && (eng != '[object Object]' && eng == 'started')){
                   engineRunning = true;
                 } else if ((engineSKPath.indexOf(".revolutions") > -1 ) && (eng <= 1)){ //RPM = 0
                   engineRunning = true;
-                } else {
+                } else  {
                   engineRunning = false;
                 }
                 //app.debug("engine running? " + engineRunning)
@@ -234,7 +246,8 @@ module.exports = function(app, options) {
           mainPolarUuid: {"ui:widget": "hidden"},
           entered: {
             items: {
-              polarUuid: {"ui:widget": "hidden"}
+              polarUuid: {"ui:widget": "hidden"},
+              csvTable: {"ui:widget": "textarea"}
             }
           }
         },
@@ -250,9 +263,9 @@ module.exports = function(app, options) {
             engine: {
               type: "string",
               title: "How is engine status monitored - stores to polar only when engine off",
-              default: "AlwaysOff",
-              "enum": ["AlwaysOff", "propulsion.*.revolutions", "propulsion.*.state"],
-              enumNames: ["assume engine always off", "propulsion.*.revolutions > 0", "propulsion.*.state is not \'started\'"]
+              default: "doNotStore",
+              "enum": ["alwaysOff", "propulsion.*.revolutions", "propulsion.*.state", "doNotStore"],
+              enumNames: ["assume engine always off", "propulsion.*.revolutions > 0", "propulsion.*.state is not \'started\'", "do not store dynamic polar"]
             },
             additional_info: {
               type: "string",
@@ -309,6 +322,10 @@ module.exports = function(app, options) {
                     title: "Name of polar ('design', 'lastYear' etc)",
                     default: "Design"
                   },
+                  description: {
+                    type: "string",
+                    title: "further description of the polar"
+                  },
                   polarUuid: {
                     type: "string",
                     title: "UUID of polar"
@@ -323,38 +340,20 @@ module.exports = function(app, options) {
                   windSpeedUnit: {
                     type: "string",
                     title: "Unit for wind speed",
-                    default: "ms",
+                    default: "knots",
                     "enum": ["knots", "ms", "kph", "mph"],
                     enumNames: ["Knots", "m/s", "km/h", "mph"]
                   },
                   boatSpeedUnit: {
                     type: "string",
                     title: "Unit for boat speed",
-                    default: "kn",
+                    default: "knots",
                     "enum": ["knots", "ms", "kph", "mph"],
                     enumNames: ["Knots", "m/s", "km/h", "mph"]
                   },
-                  polarArray: {
-                    type: "array",
-                    title: "Polar values",
-                    items: {
-                      title: "Enter your values",
-                      type: "object",
-                      properties: {
-                        "windSpeed": {
-                          title: "wind speed",
-                          type: "number",
-                        },
-                        "windAngle": {
-                          title: "True wind angle",
-                          type: "number"
-                        },
-                        "boatSpeed": {
-                          title: "Boat speed",
-                          type: "number"
-                        }
-                      }
-                    }
+                  csvTable: {
+                    type: "string",
+                    title: "enter csv with polar in http://jieter.github.io/orc-data/site/ style"
                   }
                 }
               }
@@ -385,8 +384,8 @@ module.exports = function(app, options) {
           polarName = options.polarName.replace(/ /gi, "_")
           app.debug("polar name is " + polarName)
           db.serialize(function() {
-            db.run(`CREATE TABLE IF NOT EXISTS tableUuids (uuid TEXT UNIQUE NOT NULL, name TEXT, description TEXT, windResolution DOUBLE DEFAULT NULL, angleResolution DOUBLE DEFAULT NULL)`)
-            db.run(`CREATE TABLE IF NOT EXISTS ${polarName} (
+            db.run(`CREATE TABLE IF NOT EXISTS tableUuids (uuid TEXT UNIQUE NOT NULL, name TEXT, description TEXT)`)
+            db.run(`CREATE TABLE IF NOT EXISTS '${mainPolarUuid}' (
               timestamp TEXT,
               environmentWindSpeedApparent DOUBLE DEFAULT NULL,
               environmentWindSpeedTrue DOUBLE DEFAULT NULL,
@@ -396,40 +395,91 @@ module.exports = function(app, options) {
               performanceVelocityMadeGood DOUBLE DEFAULT NULL,
               tack TEXT,
               navigationRateOfTurn DOUBLE DEFAULT NULL)`);
-              db.run('INSERT OR REPLACE INTO tableUuids (`uuid`, `name`, `description`, `windResolution`, `angleResolution`) VALUES( ?,?,?,?,?)', [mainPolarUuid, polarName, polarDescription, windSpeedResolution, angleResolutionRad])
-              db.run(`CREATE INDEX IF NOT EXISTS main_wst ON ${polarName} (environmentWindSpeedTrue)`)
-              db.run(`CREATE INDEX IF NOT EXISTS main_watg ON ${polarName} (environmentWindAngleTrueGround)`)
+              db.run('INSERT OR REPLACE INTO tableUuids (`uuid`, `name`, `description`) VALUES( ?,?,?)', [mainPolarUuid, polarName, polarDescription])
+              db.run(`CREATE INDEX IF NOT EXISTS main_wst ON '${mainPolarUuid}' (environmentWindSpeedTrue)`)
+              db.run(`CREATE INDEX IF NOT EXISTS main_watg ON '${mainPolarUuid}' (environmentWindAngleTrueGround)`)
             });
 
-
             if(options.entered && options.entered.length > 0 ){
+
+
               options.entered.forEach(table => {
-                var tableName = table.polarName
-
-                db.run(`CREATE TABLE IF NOT EXISTS ${tableName} (
-                  environmentWindSpeedTrue DOUBLE DEFAULT NULL,
-                  environmentWindAngleTrueGround DOUBLE DEFAULT NULL,
-                  navigationSpeedThroughWater DOUBLE DEFAULT NULL,
-                  performanceVelocityMadeGood DOUBLE DEFAULT NULL)`, function(err, row){
+                var tableName = table.polarName.replace(/ /gi, "_")
+                var tableUuid
+                if (table.polarUuid) {
+                  tableUuid = table.polarUuid
+                  console.log("Polar uuid exists: '" + tableUuid + "'", typeof(tableUuid))
+                } else {
+                  tableUuid = uuidv4()
+                  table.polarUuid = tableUuid
+                  console.log("Polar uuid does not exist, creating '" + tableUuid + "'")
+                  app.savePluginOptions(options, function(err,result){
                     if(err){
-                      app.debug("add self entered tables error: " + err.message);
-                    } else {
+                      console.log(err)
+                    }
+                  })
+                }
+                db = new sqlite3.Database(options.sqliteFile);
+                app.debug("polar name is " + tableName)
+                db.serialize(function() {
+                  db.run(`DROP TABLE IF EXISTS '${tableUuid}'`)
+                  db.run(`CREATE TABLE IF NOT EXISTS '${tableUuid}' (
+                    environmentWindSpeedTrue DOUBLE DEFAULT NULL,
+                    environmentWindAngleTrueGround DOUBLE DEFAULT NULL,
+                    navigationSpeedThroughWater DOUBLE DEFAULT NULL,
+                    performanceVelocityMadeGood DOUBLE DEFAULT NULL)`);
+                    db.run('INSERT OR REPLACE INTO tableUuids (`uuid`, `name`, `description`) VALUES( ?,?,?)', [tableUuid, tableName, table.description])
+                    db.run(`CREATE INDEX IF NOT EXISTS ${tableName}_wst ON '${tableUuid}' (environmentWindSpeedTrue)`)
+                    db.run(`CREATE INDEX IF NOT EXISTS ${tableName}_watg ON '${tableUuid}' (environmentWindAngleTrueGround)`)
+                  });
 
-                      var createTestData = function() {
+                  var output = []
 
-                        var stmt = db.prepare(`insert into ${tableName} values (?, ?, ?, ?)`);
-                        table.polarArray.forEach(entry => {
-                          var windSpeedSI = utilSK.transform(entry.windSpeed, table.windSpeedUnit, 'ms');
-                          var windAngleSI = utilSK.transform(entry.windAngle, table.angleUnit, 'rad');
-                          var boatSpeedSI = utilSK.transform(entry.boatSpeed, table.boatSpeedUnit, 'ms');
-                          stmt.run(windSpeedSI, windAngleSI, boatSpeedSI, getVelocityMadeGood(boatSpeedSI, windAngleSI))
-                        })
-                        stmt.finalize();
-                      };
-                      createTestData(row)
+                  parse(table.csvTable, {
+                    trim: true,
+                    skip_empty_lines: true,
+                    delimiter: ';'
+                  })
+                  // Use the readable stream api
+                  .on('readable', function(){
+                    let record
+                    while (record = this.read()) {
+                      output.push(record)
+                    }
+                    //app.debug(JSON.stringify(output))
+                    var windSpeeds = []
+                    output[0].forEach(listSpeeds)
+                    function listSpeeds(item, index) {
+                      if (index>0){ //first is "twa/tws"
+                        //var windSpeedItem = item//@TODO: remove and replace with below
+                        var windSpeedItem = utilSK.transform(item, table.windSpeedUnit, 'ms')
+                        windSpeeds.push(Number(windSpeedItem))
+                      }
+                    }
+                    //app.debug("windspeeds: " + JSON.stringify(windSpeeds))
+                    output.forEach(storeSpeeds)
+                    function storeSpeeds(item,index){
+                      if (index>0){//first row is header, and already parsed
+                        //var itemAngle = Number(item[0])//@TODO: remove and replace with below
+                        var itemAngle = utilSK.transform(Number(item[0]), table.angleUnit, 'rad')
+                        //app.debug("itemAngle: " +itemAngle)
+                        item.forEach(storeSpeed)
+                        function storeSpeed(speedItem, index){
+                          //var speed = Number(speedItem)//@TODO: replace with below
+                          var speed = utilSK.transform(speedItem, table.boatSpeedUnit, 'ms');
+                          if (index>0 && speedItem>0){//first item is angle, already parsed
+                            var vmg = getVelocityMadeGood(speed, itemAngle)
+                            //app.debug(`INSERT INTO '${tableUuid} '(environmentWindSpeedTrue, environmentWindAngleTrueGround, navigationSpeedThroughWater, performanceVelocityMadeGood ) VALUES (${windSpeeds[index-1]}, ${itemAngle}, ${speed}, ${vmg})`)
+                            db.run(`INSERT INTO '${tableUuid}'(environmentWindSpeedTrue, environmentWindAngleTrueGround, navigationSpeedThroughWater, performanceVelocityMadeGood ) VALUES (${windSpeeds[index-1]}, ${itemAngle}, ${speed}, ${vmg})`)
+                            //app.debug("windspeed: " + windSpeeds[index-1] + " angle: " + itemAngle + " boatspeed: " + speed)
+                        }
+                        }
+
+                      }
                     }
                   })
                 })
+
               }
               else {
                 db.all(`SELECT * FROM sqlite_master WHERE type='table'`, function(err, rows){
@@ -437,8 +487,8 @@ module.exports = function(app, options) {
                     app.debug("find unused tables error: " + err.message);
                   } else {
                     rows.forEach(row => {
-                      if(row.name != polarName && row.name != 'tableUuids'){
-                        app.debug("table found that can be removed: " + row.name);
+                      if(row.name != 'tableUuids'){
+                        app.debug("table found: " + row.name);
                         //db.run(`DROP TABLE ${row.name}`)
                       }
 
@@ -469,8 +519,11 @@ module.exports = function(app, options) {
                 items.push(options.engine.replace(/\*/g, options.additional_info));
                 engineSKPath = options.engine.replace(/\*/g, options.additional_info);
               }
-              else if (options.engine == "AlwaysOff"){
-                engineSKPath = "AlwaysOff";
+              else if (options.engine == "alwaysOff"){
+                engineSKPath = "alwaysOff";
+              }
+              else if(options.engine == "doNotStore"){
+                engineSKPath = "doNotStore"
               }
               rateOfTurnLimit = options.rateOfTurnLimit
               //app.debug("listening for " + util.inspect(items));
@@ -494,34 +547,52 @@ module.exports = function(app, options) {
                 res.contentType('application/json');
                 var dB = new DB(dbFile)
                 //app.debug(util.inspect(req.query));
-                // http://localhost:3000/plugins/signalk-polar/polarTables/?windspeed=4&interval=0.1
-                var windspeed = 0
-                var interval
-                req.interval?interval = req.interval:interval = windSpeedResolution
-                windspeed += interval //no need to check for 0 wind
-                var windangle = 0
-                var angleInterval = angleResolutionRad
-                var table = req.query.table?req.query.table:polarName //@TODO: perhaps better to restrict to uuid and check the remaining from tableUuids in db?
-                var uuid = req.query.uuid?req.query.uuid:mainPolarUuid
-                var description
-                if (table == polarName){
-                  description = polarDescription
-                } else {
-                  description = ""
+                // http://localhost:3000/plugins/signalk-polar/polarTables/?uuid=[uuid]
+                var windspeed, interval, windangle, angleInterval, tableName, uuid, description, response, info
+                function getTableInfo(){
+                  return new Promise((resolve, reject) => {
+                    var query = `SELECT * FROM 'tableUuids' WHERE uuid = '${req.query.uuid}'`
+                    db.get(query, function(err, row){
+                      // error will be an Error if one occurred during the query
+                      if(err){
+                        app.debug("info: " + err.message);
+                        reject(err.message)
+                      }
+                      if (row){
+                        tableName = row.name
+                        description = row.description
+                        app.debug(JSON.stringify({tableName, description}))
+                        info = {tableName, description}
+                        resolve(info)
+                      }
+                    })
+
+                  })
                 }
-                //app.debug("querying polarTable from " + table)
-                var response = {
-                  [uuid] : {
-                    "name": table,
-                    "$description": description,
-                    "source": {
-                      "label": "signalk-polar"
-                    },
-                    "polarData": []
-                  }
-                }
+
                 var polarData
                 const speedLoop = async () => {
+                  info = await getTableInfo()
+
+                  windspeed = 0
+                  interval
+                  req.interval?interval = req.interval:interval = windSpeedResolution
+                  windspeed += interval //no need to check for 0 wind
+                  windangle = 0
+                  angleInterval = angleResolutionRad
+                  tableName = info.tableName
+                  uuid = req.query.uuid?req.query.uuid:mainPolarUuid
+                  description = info.description
+                  response = {
+                    [uuid] : {
+                      "name": tableName,
+                      "$description": description,
+                      "source": {
+                        "label": "signalk-polar"
+                      },
+                      "polarData": []
+                    }
+                  }
                   let windPromises = []
                   for (var wsp = windspeed; wsp < maxWind; wsp+=interval){
                     polarData = []
@@ -536,7 +607,8 @@ module.exports = function(app, options) {
                       function getBeat(){
                         return new Promise(
                           (resolve, reject) => {
-                            query = 'SELECT environmentWindAngleTrueGround, navigationSpeedThroughWater FROM dynamicPolar WHERE environmentWindSpeedTrue < '+wsp+' AND  environmentWindSpeedTrue > '+wspLow+' AND environmentWindAngleTrueGround < '+Math.PI+' AND environmentWindAngleTrueGround > 0 ORDER BY performanceVelocityMadeGood DESC LIMIT 1'
+                            query = `SELECT environmentWindAngleTrueGround, navigationSpeedThroughWater FROM '`+uuid+`' WHERE environmentWindSpeedTrue < `+wsp+` AND  environmentWindSpeedTrue > `+wspLow+` AND environmentWindAngleTrueGround < `+Math.PI+` AND environmentWindAngleTrueGround > 0 ORDER BY performanceVelocityMadeGood DESC LIMIT 1`
+                            //app.debug(query)
                             db.get(query, function(err, row){
                               // error will be an Error if one occurred during the query
                               if(err){
@@ -547,7 +619,8 @@ module.exports = function(app, options) {
                                 beatSpeeds.push(row.navigationSpeedThroughWater)
                               }
                             })
-                            query = 'SELECT environmentWindAngleTrueGround, navigationSpeedThroughWater FROM dynamicPolar WHERE environmentWindSpeedTrue < '+wsp+' AND  environmentWindSpeedTrue > '+wspLow+' AND environmentWindAngleTrueGround < 0 AND environmentWindAngleTrueGround > '+-Math.PI+' ORDER BY performanceVelocityMadeGood DESC LIMIT 1'
+                            query = `SELECT environmentWindAngleTrueGround, navigationSpeedThroughWater FROM '`+uuid+`' WHERE environmentWindSpeedTrue < `+wsp+` AND  environmentWindSpeedTrue > `+wspLow+` AND environmentWindAngleTrueGround < 0 AND environmentWindAngleTrueGround > `+-Math.PI+` ORDER BY performanceVelocityMadeGood DESC LIMIT 1`
+                            //app.debug(query)
                             db.get(query, function(err, row){
                               // error will be an Error if one occurred during the query
                               if(err){
@@ -569,7 +642,8 @@ module.exports = function(app, options) {
                       function getGybe(){
                         return new Promise(
                           (resolve, reject) => {
-                            query = 'SELECT environmentWindAngleTrueGround, navigationSpeedThroughWater FROM dynamicPolar WHERE environmentWindSpeedTrue < '+wsp+' AND  environmentWindSpeedTrue > '+wspLow+' AND environmentWindAngleTrueGround < '+Math.PI+' AND environmentWindAngleTrueGround > 0 ORDER BY performanceVelocityMadeGood ASC LIMIT 1'
+                            query = `SELECT environmentWindAngleTrueGround, navigationSpeedThroughWater FROM '`+uuid+`' WHERE environmentWindSpeedTrue < `+wsp+` AND  environmentWindSpeedTrue > `+wspLow+` AND environmentWindAngleTrueGround < `+Math.PI+` AND environmentWindAngleTrueGround > 0 ORDER BY performanceVelocityMadeGood ASC LIMIT 1`
+                            //app.debug(query)
                             db.get(query, function(err, row){
                               // error will be an Error if one occurred during the query
                               if(err){
@@ -582,7 +656,8 @@ module.exports = function(app, options) {
                                 gybeSpeeds.push(row.navigationSpeedThroughWater)
                               }
                             })
-                            query = 'SELECT environmentWindAngleTrueGround, navigationSpeedThroughWater FROM dynamicPolar WHERE environmentWindSpeedTrue < '+wsp+' AND  environmentWindSpeedTrue > '+wspLow+' AND environmentWindAngleTrueGround < 0 AND environmentWindAngleTrueGround > '+-Math.PI+' ORDER BY performanceVelocityMadeGood ASC LIMIT 1'
+                            query = `SELECT environmentWindAngleTrueGround, navigationSpeedThroughWater FROM '`+uuid+`' WHERE environmentWindSpeedTrue < `+wsp+` AND  environmentWindSpeedTrue > `+wspLow+` AND environmentWindAngleTrueGround < 0 AND environmentWindAngleTrueGround > `+-Math.PI+` ORDER BY performanceVelocityMadeGood ASC LIMIT 1`
+                            //app.debug(query)
                             db.get(query, function(err, row){
                               // error will be an Error if one occurred during the query
                               if(err){
@@ -614,20 +689,20 @@ module.exports = function(app, options) {
                       //app.debug("checking wsp: " + wsp )
 
                       for (var angle = -Math.PI; angle < Math.PI; angle+=angleInterval) {
-                        app.debug("checking wsp: " + wsp + " and angle: " + angle)
+                        //app.debug("checking wsp: " + wsp + " and angle: " + angle)
                         data.trueWindAngles.push(angle)
                         var angleHigh = angle + angleInterval*0.5
                         var angleLow = angle - angleInterval*0.5
                         wspLow = wsp - interval
-                        var query = 'SELECT performanceVelocityMadeGood AS vmg, navigationSpeedThroughWater AS speed FROM '+table+' WHERE environmentWindSpeedTrue < ' + wsp +' AND  environmentWindSpeedTrue > ' + wspLow+' AND environmentWindAngleTrueGround < ' + angleHigh +' AND environmentWindAngleTrueGround > ' + angleLow +' ORDER BY navigationSpeedThroughWater DESC'
+                        var query = `SELECT performanceVelocityMadeGood AS vmg, navigationSpeedThroughWater AS speed FROM '`+uuid+`' WHERE environmentWindSpeedTrue < ` + wsp +` AND  environmentWindSpeedTrue > ` + wspLow+` AND environmentWindAngleTrueGround < ` + angleHigh +` AND environmentWindAngleTrueGround > ` + angleLow +` ORDER BY navigationSpeedThroughWater DESC`
                         //app.debug(query)
                         anglePromises.push(dB.getPromise(query)
                       )
                     }
-                    app.debug(util.inspect(anglePromises))
+                    //app.debug(util.inspect(anglePromises))
                     const results = await Promise.all(anglePromises)
 
-                    app.debug(JSON.stringify(results))
+                    //app.debug(JSON.stringify(results))
                     results.forEach(angleFunction);
 
                     function angleFunction(result, index) {
@@ -646,7 +721,7 @@ module.exports = function(app, options) {
                 }
 
                 const windResults = await Promise.all(windPromises)
-                app.debug("windPromises: " + JSON.stringify(windResults))
+                //app.debug("windPromises: " + JSON.stringify(windResults))                
                 windResults.forEach(windFunction)
                 function windFunction(polarData, index) {
                   response[uuid].polarData.push(polarData)
@@ -673,7 +748,7 @@ module.exports = function(app, options) {
 
                 db.all(`SELECT environmentWindAngleTrueGround AS angle,
                   MAX(navigationSpeedThroughWater) AS speed
-                  FROM ${table}
+                  FROM '${table}'
                   WHERE environmentWindSpeedTrue < ?
                   AND  environmentWindSpeedTrue > ?
                   GROUP BY environmentWindAngleTrueGround
@@ -692,7 +767,7 @@ module.exports = function(app, options) {
                 res.contentType('application/json');
 
                 db.serialize(function () {
-                  db.all("select name from sqlite_master where type='table'", function (err, tables) {
+                  db.all("select * from tableUuids", function (err, tables) {
                     // error will be an Error if one occurred during the query
                     if(err){
                       app.debug("registerWithRouter error: " + err.message);
@@ -743,7 +818,7 @@ module.exports = function(app, options) {
           function getTarget(app, polarName, trueWindSpeed, windInterval, trueWindAngle, twaInterval, speedThroughWater) {
             //app.debug("getTarget called")
             //@TODO: replace with memory
-            db.get(`SELECT * FROM ${polarName}
+            db.get(`SELECT * FROM '${mainPolarUuid}'
               WHERE environmentWindSpeedTrue < ?
               AND environmentWindSpeedTrue > ?
               ORDER BY performanceVelocityMadeGood
@@ -767,7 +842,7 @@ module.exports = function(app, options) {
               }
             );
 
-            db.get(`SELECT * FROM ${polarName}
+            db.get(`SELECT * FROM '${mainPolarUuid}'
               WHERE environmentWindSpeedTrue < ?
               AND environmentWindSpeedTrue > ?
               ORDER BY performanceVelocityMadeGood
@@ -795,7 +870,7 @@ module.exports = function(app, options) {
             );
 
 
-            db.get(`SELECT * FROM ${polarName}
+            db.get(`SELECT * FROM '${mainPolarUuid}'
               WHERE environmentWindSpeedTrue < ?
               AND ABS(environmentWindAngleTrueGround) < ?
               AND ABS(environmentWindAngleTrueGround) > ?
@@ -887,7 +962,6 @@ function getTrueWindAngle(speed, trueWindSpeed, apparentWindspeed, windAngle) {
     return calc;
   }
 }
-
 
 function getTrueWindSpeed(speed, windSpeed, windAngle) {
   //app.debug("getTrueWindSpeed called")
