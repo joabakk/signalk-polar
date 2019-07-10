@@ -577,7 +577,6 @@ module.exports = function(app, options) {
                   windspeed = 0
                   interval
                   req.interval?interval = req.interval:interval = windSpeedResolution
-                  windspeed += interval //no need to check for 0 wind
                   windangle = 0
                   angleInterval = angleResolutionRad
                   tableName = info.tableName
@@ -721,11 +720,35 @@ module.exports = function(app, options) {
                 }
 
                 const windResults = await Promise.all(windPromises)
-                //app.debug("windPromises: " + JSON.stringify(windResults))                
+                //app.debug("windPromises: " + JSON.stringify(windResults))
                 windResults.forEach(windFunction)
                 function windFunction(polarData, index) {
                   response[uuid].polarData.push(polarData)
                 }
+                function countNonEmpty(array) {
+                  return array.filter(Boolean).length;
+                }
+                function trimPolar(){
+                  var trimmedPolar = []
+                  response[uuid].polarData.forEach((data) => {
+                    var arraysToCheck = [data.beatAngles, data.gybeAngles, data.beatSpeeds, data.gybeSpeeds, data.polarSpeeds, data.velocitiesMadeGood]
+                    var arrayNum = 6
+                    arraysToCheck.forEach((x)=>{
+                      if(countNonEmpty(x)<=0){
+                        arrayNum-=1
+                      }
+                    })
+                    if (arrayNum != 0){
+                      trimmedPolar.push(data)
+                    }
+
+                  })
+                  app.debug("trim polar finished")
+                  return trimmedPolar
+                }
+                //response[uuid].polarTable = []
+                var trimmedPolar = trimPolar()
+                response[uuid].polarData = trimmedPolar
                 res.send(JSON.stringify(response))
               }
               function populatePolar(){
