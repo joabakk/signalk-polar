@@ -22,6 +22,7 @@ const _ = require('lodash');
 const sqlite3 = require('sqlite3');
 const uuidv4 = require('uuid/v4')
 const parse = require('csv-parse')
+const request = require("request");
 var db,json;
 var pushInterval;
 
@@ -43,6 +44,7 @@ var twaInterval
 var twsInterval
 var maxWind
 var dbFile
+var allPolars
 
 const DB = require('./sqliteQueries/main');
 
@@ -500,6 +502,13 @@ module.exports = function(app, options) {
               })
               // delete all user entered polars
             }
+
+            // async function getAllPolars(){
+            //   await
+            // }
+
+            //app.use()
+
             //@TODO: change this to get from memory at start, and keep in memory
             //@TODO: when values change and not fixed interval?
             pushInterval = setInterval(function() {
@@ -738,7 +747,7 @@ module.exports = function(app, options) {
                       var angleLow = angle - twaInterval*0.5
                       //wspLow = wsp - twsInterval
                       var query = `SELECT performanceVelocityMadeGood AS vmg, navigationSpeedThroughWater AS speed FROM '`+uuid+`' WHERE environmentWindSpeedTrue < ` + wsp +` AND  environmentWindSpeedTrue > ` + wspLow+` AND environmentWindAngleTrueGround < ` + angleHigh +` AND environmentWindAngleTrueGround > ` + angleLow +` ORDER BY navigationSpeedThroughWater DESC`
-                      app.debug(query)
+                      //app.debug(query)
                       anglePromises.push(dB.getPromise(query))
                     //}
                     })
