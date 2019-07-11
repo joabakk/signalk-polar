@@ -29,8 +29,8 @@ var vmg, rot, stw, awa, twa, aws, tws, eng, sog, cog, tack;
 var engineRunning = true;
 var engineSKPath = "";
 var rateOfTurnLimit
-var twsInterval = 0.1 ;//Wind speed +-0.1 m/s
-var twaInterval = 0.0174533 ;//Wind angle +-1 degree
+// var twsInterval = 0.1 ;//Wind speed +-0.1 m/s
+//var twaInterval = 0.0174533 ;//Wind angle +-1 degree
 var stableCourse = false;
 
 var vmgTimeSeconds = rotTimeSeconds = stwTimeSeconds = twaTimeSeconds = twsTimeSeconds = vmgTimeSeconds = awaTimeSeconds = awsTimeSeconds = engTimeSeconds = cogTimeSeconds = sogTimeSeconds = 0
@@ -39,8 +39,8 @@ var secondsSincePush
 var mainPolarUuid
 var polarName
 var polarDescription
-var angleResolutionRad
-var windSpeedResolution
+var twaInterval
+var twsInterval
 var maxWind
 var dbFile
 
@@ -61,6 +61,8 @@ module.exports = function(app, options) {
   'use strict';
   var client;
   var selfContext = "vessels." + app.selfId;
+  var plugin = {}
+  plugin.id = "signalk-polar"
 
   var unsubscribes = [];
   var shouldStore = function(path) { return true; };
@@ -295,7 +297,7 @@ module.exports = function(app, options) {
               title: "angle resolution in degrees",
               default: 1
             },
-            windSpeedResolution: {
+            twsInterval: {
               type: "number",
               title: "wind speed resolution in m/s",
               default: 4
@@ -363,8 +365,9 @@ module.exports = function(app, options) {
 
         start: function(options) {
           dbFile = options.sqliteFile
-          angleResolutionRad = options.angleResolution*Math.PI/180
-          windSpeedResolution = options.windSpeedResolution
+          twaInterval = options.angleResolution*Math.PI/180
+          twsInterval = options.twsInterval
+          app.debug("twsInterval: " + twsInterval)
           polarDescription = options.polarDescription
           maxWind = options.maxWind
           if (options.mainPolarUuid) {
@@ -547,10 +550,9 @@ module.exports = function(app, options) {
               res.contentType('application/json');
               var dB = new DB(dbFile)
               uuid = req.query.uuid?req.query.uuid:mainPolarUuid
-              angleInterval = angleResolutionRad
               //app.debug(util.inspect(req.query));
               // http://localhost:3000/plugins/signalk-polar/polarTables/?uuid=[uuid]
-              var windspeed, windSpeedArray, interval, windangle, angleInterval, tableName, uuid, description, response, info, query
+              var windspeed, windSpeedArray, windangle, tableName, uuid, description, response, info, query
               function getTableInfo(){
                 return new Promise((resolve, reject) => {
                   var query = `SELECT * FROM 'tableUuids' WHERE uuid = '${uuid}'`
@@ -580,7 +582,7 @@ module.exports = function(app, options) {
                     "name": tableName,
                     "$description": description,
                     "source": {
-                      "label": app.id
+                      "label": plugin.id
                     },
                     "polarData": []
                   }
@@ -593,7 +595,7 @@ module.exports = function(app, options) {
                 return new Promise((resolve, reject) => {
                   db.serialize(function (){
                     var query = `SELECT DISTINCT ROUND(environmentWindSpeedTrue+0.01, 2) AS windspeed from '${uuid}' ORDER BY windSpeed ASC`
-                    //app.debug(query)
+                    app.debug(query)
                     db.all(query, function(err, tables){
                       if(err){
                         app.debug("windSpeedArray error: " + err.message)
@@ -658,7 +660,19 @@ module.exports = function(app, options) {
               var polarData
               const speedLoop = async () => {
                 response = await getInfo()
-                var windSpeedArray = await getWindSpeedArray()
+
+                var windSpeedArray
+                if(uuid == mainPolarUuid){
+                  windSpeedArray = []
+                  for(var windspeed = twsInterval; windspeed < maxWind;windspeed+=twsInterval){
+                    windSpeedArray.push(windspeed)
+                  }
+                  app.debug(windSpeedArray)
+                }
+                else {
+                  windSpeedArray = await getWindSpeedArray()
+                }
+
                 let windPromises = []
                 windSpeedArray.forEach(function(element, index, array){
                   let wsp = element
@@ -708,7 +722,7 @@ module.exports = function(app, options) {
 
                     if(uuid == mainPolarUuid){
                       //If at the dynamic polar, we still want to produce polars with angles to set interval
-                      for (var angle = -Math.PI; angle < Math.PI; angle +=angleInterval){
+                      for (var angle = -Math.PI; angle < Math.PI; angle +=twaInterval){
                         app.debug(wsp + " m/s, angle: " + angle)
                         windAngleArray.push(angle)
                       }
@@ -719,15 +733,12 @@ module.exports = function(app, options) {
 
 
                     windAngleArray.forEach(function(angle, index, array){
-                    //for (var angle = -Math.PI; angle < Math.PI; angle+=angleInterval) {
-                      //app.debug("checking wsp: " + wsp + " and angle: " + angle)
-                      //@TODO change to defined array
                       data.trueWindAngles.push(angle)
-                      var angleHigh = angle + angleInterval*0.5
-                      var angleLow = angle - angleInterval*0.5
-                      //wspLow = wsp - interval
+                      var angleHigh = angle + twaInterval*0.5
+                      var angleLow = angle - twaInterval*0.5
+                      //wspLow = wsp - twsInterval
                       var query = `SELECT performanceVelocityMadeGood AS vmg, navigationSpeedThroughWater AS speed FROM '`+uuid+`' WHERE environmentWindSpeedTrue < ` + wsp +` AND  environmentWindSpeedTrue > ` + wspLow+` AND environmentWindAngleTrueGround < ` + angleHigh +` AND environmentWindAngleTrueGround > ` + angleLow +` ORDER BY navigationSpeedThroughWater DESC`
-                      //app.debug(query)
+                      app.debug(query)
                       anglePromises.push(dB.getPromise(query))
                     //}
                     })
