@@ -610,9 +610,32 @@ module.exports = function(app, options) {
                 })
               }
 
+
+
               const getWindArray = async() => {
                 var windSpeedArray = await getWindSpeedArray()
                 return windSpeedArray
+              }
+
+              function getWindAngleArray(wsp, wspLow){
+                return new Promise((resolve, reject) =>{
+                  db.serialize(function(){
+                    var query = `SELECT environmentWindAngleTrueGround AS angles from '${uuid}' WHERE environmentWindSpeedTrue < ${wsp} AND environmentWindSpeedTrue > ${wspLow} ORDER BY angles ASC`
+                    //app.debug(query)
+                    db.all(query, function(err, tables){
+                      if(err){
+                        app.debug("windAngleArray error: " + err.message)
+                        reject(err.message)
+                      }
+                      var windAngles = []
+                      tables.forEach(angle =>{
+                        windAngles.push(angle.angles)
+                      })
+                      app.debug(windAngles)
+                      resolve(windAngles)
+                    })
+                  })
+                })
               }
 
               function getPerf(wsp, wspLow){
@@ -681,8 +704,22 @@ module.exports = function(app, options) {
                       app.debug("getPerfAsync: ", JSON.stringify(data))
                       return (data)
                     })
+                    var windAngleArray = []
 
-                    for (var angle = -Math.PI; angle < Math.PI; angle+=angleInterval) {
+                    if(uuid == mainPolarUuid){
+                      //If at the dynamic polar, we still want to produce polars with angles to set interval
+                      for (var angle = -Math.PI; angle < Math.PI; angle +=angleInterval){
+                        app.debug(wsp + " m/s, angle: " + angle)
+                        windAngleArray.push(angle)
+                      }
+                    }
+                    else {
+                      var windAngleArray = await getWindAngleArray(wsp, wspLow)
+                    }
+
+
+                    windAngleArray.forEach(function(angle, index, array){
+                    //for (var angle = -Math.PI; angle < Math.PI; angle+=angleInterval) {
                       //app.debug("checking wsp: " + wsp + " and angle: " + angle)
                       //@TODO change to defined array
                       data.trueWindAngles.push(angle)
@@ -690,9 +727,10 @@ module.exports = function(app, options) {
                       var angleLow = angle - angleInterval*0.5
                       //wspLow = wsp - interval
                       var query = `SELECT performanceVelocityMadeGood AS vmg, navigationSpeedThroughWater AS speed FROM '`+uuid+`' WHERE environmentWindSpeedTrue < ` + wsp +` AND  environmentWindSpeedTrue > ` + wspLow+` AND environmentWindAngleTrueGround < ` + angleHigh +` AND environmentWindAngleTrueGround > ` + angleLow +` ORDER BY navigationSpeedThroughWater DESC`
-                      app.debug(query)
+                      //app.debug(query)
                       anglePromises.push(dB.getPromise(query))
-                    }
+                    //}
+                    })
                     //app.debug(util.inspect(anglePromises))
                     const results = await Promise.all(anglePromises)
 
@@ -718,7 +756,7 @@ module.exports = function(app, options) {
                 //app.debug("windPromises: " + JSON.stringify(windResults))
                 windResults.forEach(windFunction)
                 function windFunction(polarData, index) {
-                  app.debug(JSON.stringify(response))
+                  //app.debug(JSON.stringify(response))
                   response[uuid].polarData.push(polarData)
                 }
                 function countNonEmpty(array) {
