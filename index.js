@@ -547,6 +547,7 @@ module.exports = function(app, options) {
               res.contentType('application/json');
               var dB = new DB(dbFile)
               uuid = req.query.uuid?req.query.uuid:mainPolarUuid
+              angleInterval = angleResolutionRad
               //app.debug(util.inspect(req.query));
               // http://localhost:3000/plugins/signalk-polar/polarTables/?uuid=[uuid]
               var windspeed, windSpeedArray, interval, windangle, angleInterval, tableName, uuid, description, response, info, query
@@ -591,7 +592,7 @@ module.exports = function(app, options) {
               function getWindSpeedArray(){
                 return new Promise((resolve, reject) => {
                   db.serialize(function (){
-                    var query = `SELECT DISTINCT ROUND(environmentWindSpeedTrue+0.1, 1) AS windspeed from '${uuid}' ORDER BY windSpeed ASC`
+                    var query = `SELECT DISTINCT ROUND(environmentWindSpeedTrue+0.01, 2) AS windspeed from '${uuid}' ORDER BY windSpeed ASC`
                     //app.debug(query)
                     db.all(query, function(err, tables){
                       if(err){
@@ -600,7 +601,7 @@ module.exports = function(app, options) {
                       }
                       var windSpeeds = []
                       tables.forEach(speed =>{
-                        windSpeeds.push(speed.windSpeed)
+                        windSpeeds.push(speed.windspeed)
                       })
                       app.debug(windSpeeds)
                       resolve(windSpeeds)
@@ -609,9 +610,15 @@ module.exports = function(app, options) {
                 })
               }
 
+              const getWindArray = async() => {
+                var windSpeedArray = await getWindSpeedArray()
+                return windSpeedArray
+              }
+
               function getPerf(wsp, wspLow){
                 var perfPromises = []
                 query = `SELECT environmentWindAngleTrueGround, navigationSpeedThroughWater FROM '`+uuid+`' WHERE environmentWindSpeedTrue < `+wsp+` AND  environmentWindSpeedTrue > `+wspLow+` AND environmentWindAngleTrueGround < `+Math.PI+` AND environmentWindAngleTrueGround > 0 ORDER BY performanceVelocityMadeGood DESC LIMIT 1`
+                //app.debug(query)
                 perfPromises.push(dB.getPromise(query))
                 query = `SELECT environmentWindAngleTrueGround, navigationSpeedThroughWater FROM '`+uuid+`' WHERE environmentWindSpeedTrue < `+wsp+` AND  environmentWindSpeedTrue > `+wspLow+` AND environmentWindAngleTrueGround < 0 AND environmentWindAngleTrueGround > `+-Math.PI+` ORDER BY performanceVelocityMadeGood DESC LIMIT 1`
                 perfPromises.push(dB.getPromise(query))
@@ -621,52 +628,14 @@ module.exports = function(app, options) {
                 perfPromises.push(dB.getPromise(query))
                 var p = Promise.all(perfPromises)
                 .catch(error => console.log(`Error in getPerf: ${error}`))
-                setTimeout(function(){
-                  return p
-                })
-              }
-              const getPerfAsync = async(wsp, wspLow)=>{
-                await getPerf(wsp, wspLow).then(values =>{
-                  data = {
-                    "trueWindSpeed":wsp,
-                    "beatAngles": [],
-                    "beatSpeeds": [],
-                    "gybeAngles": [],
-                    "gybeSpeeds": [],
-                    "trueWindAngles": [],
-                    "polarSpeeds": [],
-                    "velocitiesMadeGood": []
-                  }
-                  if(values[0] !== null && values[0] != 'null' && values[0] !== undefined && values[0] != 'undefined'){
-                    var value = JSON.parse(JSON.stringify(value[0]))
-                    data.beatAngles.push(value.environmentWindAngleTrueGround)
-                    data.beatSpeeds.push(value.navigationSpeedThroughWater)
-                  }
-                  if(values[1] !== null && values[1] != 'null' && values[1] !== undefined && values[1] != 'undefined'){
-                    var value = JSON.parse(JSON.stringify(value[1]))
-                    data.beatAngles.push(value.environmentWindAngleTrueGround)
-                    data.beatSpeeds.push(value.navigationSpeedThroughWater)
-                  }
-                  if(values[2] !== null && values[2] != 'null' &&values[2] !== undefined && values[2] != 'undefined'){
-                    var value = JSON.parse(JSON.stringify(value[2]))
-                    data.gybeAngles.push(value.environmentWindAngleTrueGround)
-                    data.gybeSpeeds.push(value.navigationSpeedThroughWater)
-                  }
-                  if(values[3] !== null && values[3] != 'null' && values[3] !== undefined && values[3] != 'undefined'){
-                    var value = JSON.parse(JSON.stringify(value[3]))
-                    data.gybeAngles.push(value.environmentWindAngleTrueGround)
-                    data.gybeSpeeds.push(value.navigationSpeedThroughWater)
-                  }
-                  app.debug("getPerfAsync: ", JSON.stringify(data))
-                  return data
-                })
+                return p
               }
 
 
               var polarData
               const speedLoop = async () => {
-                rasponse = await getTableInfo()
-                windSpeedArray = await getWindSpeedArray()
+                response = await getInfo()
+                var windSpeedArray = await getWindSpeedArray()
                 let windPromises = []
                 windSpeedArray.forEach(function(element, index, array){
                   let wsp = element
@@ -677,28 +646,51 @@ module.exports = function(app, options) {
 
                   const angleLoop = async (wsp) => {
                     let anglePromises = [];
-                    var data = await getPerfAsync(wsp, wspLow)
-                    /*
-                    var data = {
-                    "trueWindSpeed": wsp,
-                    "beatAngles": beatAngles,
-                    "beatSpeeds": beatSpeeds,
-                    "gybeAngles": gybeAngles,
-                    "gybeSpeeds": gybeSpeeds,
-                    "trueWindAngles": [],
-                    "polarSpeeds": [],
-                    "velocitiesMadeGood": []}
-                    */
-                    //app.debug("checking wsp: " + wsp )
+                    var data = await getPerf(wsp, wspLow).then(values =>{
+                      var data = {
+                        "trueWindSpeed":wsp,
+                        "beatAngles": [],
+                        "beatSpeeds": [],
+                        "gybeAngles": [],
+                        "gybeSpeeds": [],
+                        "trueWindAngles": [],
+                        "polarSpeeds": [],
+                        "velocitiesMadeGood": []
+                      }
+                      //app.debug(JSON.stringify(values))
+                      if(values[0] !== null && values[0] != 'null' && values[0] !== undefined && values[0] != 'undefined'){
+                        var value = JSON.parse(JSON.stringify(values[0]))
+                        data.beatAngles.push(value.environmentWindAngleTrueGround)
+                        data.beatSpeeds.push(value.navigationSpeedThroughWater)
+                      }
+                      if(values[1] !== null && values[1] != 'null' && values[1] !== undefined && values[1] != 'undefined'){
+                        var value = JSON.parse(JSON.stringify(values[1]))
+                        data.beatAngles.push(value.environmentWindAngleTrueGround)
+                        data.beatSpeeds.push(value.navigationSpeedThroughWater)
+                      }
+                      if(values[2] !== null && values[2] != 'null' &&values[2] !== undefined && values[2] != 'undefined'){
+                        var value = JSON.parse(JSON.stringify(values[2]))
+                        data.gybeAngles.push(value.environmentWindAngleTrueGround)
+                        data.gybeSpeeds.push(value.navigationSpeedThroughWater)
+                      }
+                      if(values[3] !== null && values[3] != 'null' && values[3] !== undefined && values[3] != 'undefined'){
+                        var value = JSON.parse(JSON.stringify(values[3]))
+                        data.gybeAngles.push(value.environmentWindAngleTrueGround)
+                        data.gybeSpeeds.push(value.navigationSpeedThroughWater)
+                      }
+                      app.debug("getPerfAsync: ", JSON.stringify(data))
+                      return (data)
+                    })
 
                     for (var angle = -Math.PI; angle < Math.PI; angle+=angleInterval) {
                       //app.debug("checking wsp: " + wsp + " and angle: " + angle)
+                      //@TODO change to defined array
                       data.trueWindAngles.push(angle)
                       var angleHigh = angle + angleInterval*0.5
                       var angleLow = angle - angleInterval*0.5
-                      wspLow = wsp - interval
+                      //wspLow = wsp - interval
                       var query = `SELECT performanceVelocityMadeGood AS vmg, navigationSpeedThroughWater AS speed FROM '`+uuid+`' WHERE environmentWindSpeedTrue < ` + wsp +` AND  environmentWindSpeedTrue > ` + wspLow+` AND environmentWindAngleTrueGround < ` + angleHigh +` AND environmentWindAngleTrueGround > ` + angleLow +` ORDER BY navigationSpeedThroughWater DESC`
-                      //app.debug(query)
+                      app.debug(query)
                       anglePromises.push(dB.getPromise(query))
                     }
                     //app.debug(util.inspect(anglePromises))
@@ -726,6 +718,7 @@ module.exports = function(app, options) {
                 //app.debug("windPromises: " + JSON.stringify(windResults))
                 windResults.forEach(windFunction)
                 function windFunction(polarData, index) {
+                  app.debug(JSON.stringify(response))
                   response[uuid].polarData.push(polarData)
                 }
                 function countNonEmpty(array) {
@@ -750,8 +743,8 @@ module.exports = function(app, options) {
                   return trimmedPolar
                 }
                 //response[uuid].polarTable = []
-                var trimmedPolar = trimPolar()
-                response[uuid].polarData = trimmedPolar
+                //var trimmedPolar = trimPolar()
+                //response[uuid].polarData = trimmedPolar
                 res.send(JSON.stringify(response))
               }
               function populatePolar(){
