@@ -392,15 +392,12 @@ module.exports = function(app, options) {
           update.source.talker != "signalk-polar"
         ) {
           var points = update.values.reduce((acc, pathValue, options) => {
-            if (
-              typeof pathValue.value === "number" &&
-              engineSKPath != "doNotStore"
-            ) {
+            if (typeof pathValue.value === "number" && engineSKPath != "doNotStore") {
               //propulsion.*.state is not number!
               var storeIt = shouldStore(pathValue.path)
 
               if (storeIt) {
-                //app.debug(update.timestamp + " " + pathValue.path + " " + pathValue.value)
+                app.debug(update.timestamp + " " + pathValue.path + " " + pathValue.value)
                 if (pathValue.path == "navigation.rateOfTurn") {
                   var rotTime = new Date(update.timestamp)
                   rotTimeSeconds = rotTime.getTime() / 1000 //need to convert to seconds for comparison
@@ -478,15 +475,9 @@ module.exports = function(app, options) {
                 var timediff = timeMax - timeMin //check that values are fairly concurrent
                 //app.debug("time diff " + timediff)
 
-                if (
-                  engineSKPath.indexOf(".state") > -1 &&
-                  (eng != "[object Object]" && eng == "started")
-                ) {
+                if (engineSKPath.indexOf(".state") > -1 &&(eng != "[object Object]" && eng == "started")) {
                   engineRunning = true
-                } else if (
-                  engineSKPath.indexOf(".revolutions") > -1 &&
-                  eng >= 1
-                ) {
+                } else if (engineSKPath.indexOf(".revolutions") > -1 && eng >= 1) {
                   //RPM
                   engineRunning = true
                 } else if (engineSKPath == "doNotStore") {
@@ -502,22 +493,8 @@ module.exports = function(app, options) {
                 }
                 //app.debug("stable course? " + stableCourse +" "+ Math.abs(rot*3437) + " deg/min compared to " + rateOfTurnLimit)
 
-                app.debug(
-                  "timediff " +
-                    timediff +
-                    " , engine running? " +
-                    engineRunning +
-                    " stable? " +
-                    stableCourse +
-                    " last store " +
-                    lastStored
-                )
-                if (
-                  timediff < maxInterval &&
-                  !engineRunning &&
-                  stableCourse &&
-                  lastStored < timeMax - 1
-                ) {
+                app.debug("timediff " + timediff + " , engine running? " + engineRunning + " stable? " + stableCourse + " last store " +   lastStored)
+                if (timediff < maxInterval && !engineRunning && stableCourse && lastStored < timeMax - 1) {
                   app.debug("sailing")
                   if (timeMax - twsTimeSeconds > 1) {
                     //app.debug("finding tws")
@@ -552,39 +529,20 @@ module.exports = function(app, options) {
                     secondsSincePush = timeMax
                   }
                   //tack is implicit in wind angle, no need to check (or store)
-                  //but check if rot between limits -5deg/min < rot < 5deg/min
-
-                  //app.debug(`SELECT * FROM polar Where environmentWindSpeedTrue <= `+ tws + ` AND environmentWindAngleTrueGround = ` + twa + ` AND navigationSpeedThroughWater >= `+ stw )
                   windSpeedIndex = Math.ceil(tws / twsInterval) - 1
                   //app.debug(windSpeedIndex + " as index for tws: " + tws)
-                  windAngleIndex = Math.round(
-                    (Math.PI + trueWindAngle) / twaInterval
-                  )
+                  windAngleIndex = Math.round((Math.PI + twa) / twaInterval)
                   //app.debug(windAngleIndex + " as index for twa: " + twa)
-                  //console.log("main polar: " + mainPolarData)
-                  var storedSpeed =
-                    mainPolarData[windSpeedIndex].polarSpeeds[windAngleIndex]
-                  //app.debug(typeof(storedSpeed), storedSpeed + " as stored speed")
+                  var storedSpeed = mainPolarData[windSpeedIndex].polarSpeeds[windAngleIndex]
+                  app.debug(typeof(storedSpeed), storedSpeed + " as stored speed")
                   if (storedSpeed === null) {
                     app.debug("nothing stored, should store")
                     storeRecord = true
                   } else if (storedSpeed < stw) {
-                    app.debug(
-                      "stored " +
-                        storedSpeed +
-                        " > actual " +
-                        stw +
-                        " , storing!"
-                    )
+                    app.debug("stored " + storedSpeed + " > actual " + stw + " , storing!")
                     storeRecord = true
                   } else {
-                    app.debug(
-                      "stored " +
-                        storedSpeed +
-                        " < actual " +
-                        stw +
-                        " , nothing to do here!"
-                    )
+                    app.debug("stored " + storedSpeed + " < actual " + stw + " , nothing to do here!")
                     storeRecord = false
                   }
 
