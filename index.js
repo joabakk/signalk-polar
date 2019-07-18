@@ -81,14 +81,14 @@ module.exports = function(app, options) {
 
   function getPolarTable(uuid) {
     var windspeed,
-      windSpeedArray,
-      windangle,
-      tableName,
-      uuid,
-      description,
-      response,
-      info,
-      query
+    windSpeedArray,
+    windangle,
+    tableName,
+    uuid,
+    description,
+    response,
+    info,
+    query
     function getTableInfo(uuid) {
       return new Promise((resolve, reject) => {
         var query = `SELECT * FROM 'tableUuids' WHERE uuid = ?`
@@ -151,49 +151,49 @@ module.exports = function(app, options) {
     function getPerf(uuid, wsp, wspLow) {
       var perfPromises = []
       query =
-        `SELECT environmentWindAngleTrueGround, navigationSpeedThroughWater FROM '` +
-        uuid +
-        `' WHERE environmentWindSpeedTrue < ` +
-        wsp +
-        ` AND  environmentWindSpeedTrue > ` +
-        wspLow +
-        ` AND environmentWindAngleTrueGround < ` +
-        Math.PI +
-        ` AND environmentWindAngleTrueGround > 0 ORDER BY performanceVelocityMadeGood DESC LIMIT 1`
+      `SELECT environmentWindAngleTrueGround, navigationSpeedThroughWater FROM '` +
+      uuid +
+      `' WHERE environmentWindSpeedTrue < ` +
+      wsp +
+      ` AND  environmentWindSpeedTrue > ` +
+      wspLow +
+      ` AND environmentWindAngleTrueGround < ` +
+      Math.PI +
+      ` AND environmentWindAngleTrueGround > 0 ORDER BY performanceVelocityMadeGood DESC LIMIT 1`
       //app.debug(query)
       perfPromises.push(db.prepare(query).get())
       query =
-        `SELECT environmentWindAngleTrueGround, navigationSpeedThroughWater FROM '` +
-        uuid +
-        `' WHERE environmentWindSpeedTrue < ` +
-        wsp +
-        ` AND  environmentWindSpeedTrue > ` +
-        wspLow +
-        ` AND environmentWindAngleTrueGround < 0 AND environmentWindAngleTrueGround > ` +
-        -Math.PI +
-        ` ORDER BY performanceVelocityMadeGood DESC LIMIT 1`
+      `SELECT environmentWindAngleTrueGround, navigationSpeedThroughWater FROM '` +
+      uuid +
+      `' WHERE environmentWindSpeedTrue < ` +
+      wsp +
+      ` AND  environmentWindSpeedTrue > ` +
+      wspLow +
+      ` AND environmentWindAngleTrueGround < 0 AND environmentWindAngleTrueGround > ` +
+      -Math.PI +
+      ` ORDER BY performanceVelocityMadeGood DESC LIMIT 1`
       perfPromises.push(db.prepare(query).get())
       query =
-        `SELECT environmentWindAngleTrueGround, navigationSpeedThroughWater FROM '` +
-        uuid +
-        `' WHERE environmentWindSpeedTrue < ` +
-        wsp +
-        ` AND  environmentWindSpeedTrue > ` +
-        wspLow +
-        ` AND environmentWindAngleTrueGround < ` +
-        Math.PI +
-        ` AND environmentWindAngleTrueGround > 0 ORDER BY performanceVelocityMadeGood ASC LIMIT 1`
+      `SELECT environmentWindAngleTrueGround, navigationSpeedThroughWater FROM '` +
+      uuid +
+      `' WHERE environmentWindSpeedTrue < ` +
+      wsp +
+      ` AND  environmentWindSpeedTrue > ` +
+      wspLow +
+      ` AND environmentWindAngleTrueGround < ` +
+      Math.PI +
+      ` AND environmentWindAngleTrueGround > 0 ORDER BY performanceVelocityMadeGood ASC LIMIT 1`
       perfPromises.push(db.prepare(query).get())
       query =
-        `SELECT environmentWindAngleTrueGround, navigationSpeedThroughWater FROM '` +
-        uuid +
-        `' WHERE environmentWindSpeedTrue < ` +
-        wsp +
-        ` AND  environmentWindSpeedTrue > ` +
-        wspLow +
-        ` AND environmentWindAngleTrueGround < 0 AND environmentWindAngleTrueGround > ` +
-        -Math.PI +
-        ` ORDER BY performanceVelocityMadeGood ASC LIMIT 1`
+      `SELECT environmentWindAngleTrueGround, navigationSpeedThroughWater FROM '` +
+      uuid +
+      `' WHERE environmentWindSpeedTrue < ` +
+      wsp +
+      ` AND  environmentWindSpeedTrue > ` +
+      wspLow +
+      ` AND environmentWindAngleTrueGround < 0 AND environmentWindAngleTrueGround > ` +
+      -Math.PI +
+      ` ORDER BY performanceVelocityMadeGood ASC LIMIT 1`
       perfPromises.push(db.prepare(query).get())
       var p = Promise.all(perfPromises).catch(error =>
         console.log(`Error in getPerf: ${error}`)
@@ -296,17 +296,17 @@ module.exports = function(app, options) {
             var angleLow = angle - twaInterval * 0.5
             //wspLow = wsp - twsInterval
             var query =
-              `SELECT performanceVelocityMadeGood AS vmg, navigationSpeedThroughWater AS speed FROM '` +
-              uuid +
-              `' WHERE environmentWindSpeedTrue < ` +
-              wsp +
-              ` AND  environmentWindSpeedTrue > ` +
-              wspLow +
-              ` AND environmentWindAngleTrueGround < ` +
-              angleHigh +
-              ` AND environmentWindAngleTrueGround > ` +
-              angleLow +
-              ` ORDER BY navigationSpeedThroughWater DESC`
+            `SELECT performanceVelocityMadeGood AS vmg, navigationSpeedThroughWater AS speed FROM '` +
+            uuid +
+            `' WHERE environmentWindSpeedTrue < ` +
+            wsp +
+            ` AND  environmentWindSpeedTrue > ` +
+            wspLow +
+            ` AND environmentWindAngleTrueGround < ` +
+            angleHigh +
+            ` AND environmentWindAngleTrueGround > ` +
+            angleLow +
+            ` ORDER BY navigationSpeedThroughWater DESC`
             //app.debug(query)
             anglePromises.push(db.prepare(query).get())
             //}
@@ -320,11 +320,11 @@ module.exports = function(app, options) {
           function angleFunction(result, index) {
             if (result != undefined) {
               result.speed
-                ? data.polarSpeeds.push(result.speed)
-                : data.polarSpeeds.push(null)
+              ? data.polarSpeeds.push(result.speed)
+              : data.polarSpeeds.push(null)
               result.vmg
-                ? data.velocitiesMadeGood.push(result.vmg)
-                : data.velocitiesMadeGood.push(null)
+              ? data.velocitiesMadeGood.push(result.vmg)
+              : data.velocitiesMadeGood.push(null)
             } else {
               data.polarSpeeds.push(null)
               data.velocitiesMadeGood.push(null)
@@ -572,7 +572,7 @@ module.exports = function(app, options) {
     id: "signalk-polar",
     name: "Polar storage and retrieval",
     description:
-      "Signal K server plugin that stores and retrieves polar data from sqlite3 database",
+    "Signal K server plugin that stores and retrieves polar data from sqlite3 database",
     uiSchema: {
       mainPolarUuid: { "ui:widget": "hidden" },
       entered: {
@@ -585,7 +585,7 @@ module.exports = function(app, options) {
     schema: {
       type: "object",
       title:
-        "A Signal K (node) plugin to maintain polar diagrams in a sqlite3 database",
+      "A Signal K (node) plugin to maintain polar diagrams in a sqlite3 database",
       description: "",
       required: ["engine", "sqliteFile"],
 
@@ -593,7 +593,7 @@ module.exports = function(app, options) {
         engine: {
           type: "string",
           title:
-            "How is engine status monitored - stores to polar only when engine off",
+          "How is engine status monitored - stores to polar only when engine off",
           default: "doNotStore",
           enum: [
             "alwaysOff",
@@ -611,7 +611,7 @@ module.exports = function(app, options) {
         additional_info: {
           type: "string",
           title:
-            "replace * in 'propulsion.*.revolutions' or 'propulsion.*.state' with [ ]"
+          "replace * in 'propulsion.*.revolutions' or 'propulsion.*.state' with [ ]"
         },
         sqliteFile: {
           type: "string",
@@ -650,7 +650,7 @@ module.exports = function(app, options) {
         rateOfTurnLimit: {
           type: "number",
           title:
-            "Store in database if rate of turn is less than [ ] deg/min (inertia gives false reading while turning vessel)",
+          "Store in database if rate of turn is less than [ ] deg/min (inertia gives false reading while turning vessel)",
           default: 5
         },
         entered: {
@@ -697,7 +697,7 @@ module.exports = function(app, options) {
               csvTable: {
                 type: "string",
                 title:
-                  "enter csv with polar in http://jieter.github.io/orc-data/site/ style"
+                "enter csv with polar in http://jieter.github.io/orc-data/site/ style"
               }
             }
           }
@@ -730,30 +730,30 @@ module.exports = function(app, options) {
       app.debug("polar name is " + polarName)
       var create
       create = db
-        .prepare(
-          `CREATE TABLE IF NOT EXISTS tableUuids (uuid TEXT UNIQUE NOT NULL, name TEXT, description TEXT)`
-        )
-        .run()
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS tableUuids (uuid TEXT UNIQUE NOT NULL, name TEXT, description TEXT)`
+      )
+      .run()
       create = db
-        .prepare(
-          `CREATE TABLE IF NOT EXISTS '${mainPolarUuid}' (timestamp TEXT,  environmentWindSpeedApparent DOUBLE DEFAULT NULL, environmentWindSpeedTrue DOUBLE DEFAULT NULL,  environmentWindAngleApparent DOUBLE DEFAULT NULL,  environmentWindAngleTrueGround DOUBLE DEFAULT NULL,  navigationSpeedThroughWater DOUBLE DEFAULT NULL, performanceVelocityMadeGood DOUBLE DEFAULT NULL, tack TEXT,  navigationRateOfTurn DOUBLE DEFAULT NULL)`
-        )
-        .run()
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS '${mainPolarUuid}' (timestamp TEXT,  environmentWindSpeedApparent DOUBLE DEFAULT NULL, environmentWindSpeedTrue DOUBLE DEFAULT NULL,  environmentWindAngleApparent DOUBLE DEFAULT NULL,  environmentWindAngleTrueGround DOUBLE DEFAULT NULL,  navigationSpeedThroughWater DOUBLE DEFAULT NULL, performanceVelocityMadeGood DOUBLE DEFAULT NULL, tack TEXT,  navigationRateOfTurn DOUBLE DEFAULT NULL)`
+      )
+      .run()
       db
-        .prepare(
-          "INSERT OR REPLACE INTO tableUuids (`uuid`, `name`, `description`) VALUES( ?,?,?)"
-        )
-        .run([mainPolarUuid, polarName, polarDescription])
+      .prepare(
+        "INSERT OR REPLACE INTO tableUuids (`uuid`, `name`, `description`) VALUES( ?,?,?)"
+      )
+      .run([mainPolarUuid, polarName, polarDescription])
       db
-        .prepare(
-          `CREATE INDEX IF NOT EXISTS main_wst ON '${mainPolarUuid}' (environmentWindSpeedTrue)`
-        )
-        .run()
+      .prepare(
+        `CREATE INDEX IF NOT EXISTS main_wst ON '${mainPolarUuid}' (environmentWindSpeedTrue)`
+      )
+      .run()
       db
-        .prepare(
-          `CREATE INDEX IF NOT EXISTS main_watg ON '${mainPolarUuid}' (environmentWindAngleTrueGround)`
-        )
-        .run()
+      .prepare(
+        `CREATE INDEX IF NOT EXISTS main_watg ON '${mainPolarUuid}' (environmentWindAngleTrueGround)`
+      )
+      .run()
 
       if (options.entered && options.entered.length > 0) {
         options.entered.forEach(table => {
@@ -775,25 +775,25 @@ module.exports = function(app, options) {
           app.debug("polar name is " + tableName)
           create = db.prepare(`DROP TABLE IF EXISTS '${tableUuid}'`).run()
           db
-            .prepare(
-              `CREATE TABLE IF NOT EXISTS '${tableUuid}' (environmentWindSpeedTrue DOUBLE DEFAULT NULL, environmentWindAngleTrueGround DOUBLE DEFAULT NULL, navigationSpeedThroughWater DOUBLE DEFAULT NULL, performanceVelocityMadeGood DOUBLE DEFAULT NULL)`
-            )
-            .run()
+          .prepare(
+            `CREATE TABLE IF NOT EXISTS '${tableUuid}' (environmentWindSpeedTrue DOUBLE DEFAULT NULL, environmentWindAngleTrueGround DOUBLE DEFAULT NULL, navigationSpeedThroughWater DOUBLE DEFAULT NULL, performanceVelocityMadeGood DOUBLE DEFAULT NULL)`
+          )
+          .run()
           db
-            .prepare(
-              "INSERT OR REPLACE INTO tableUuids (`uuid`, `name`, `description`) VALUES( ?,?,?)"
-            )
-            .run([tableUuid, tableName, table.description])
+          .prepare(
+            "INSERT OR REPLACE INTO tableUuids (`uuid`, `name`, `description`) VALUES( ?,?,?)"
+          )
+          .run([tableUuid, tableName, table.description])
           db
-            .prepare(
-              `CREATE INDEX IF NOT EXISTS ${tableName}_wst ON '${tableUuid}' (environmentWindSpeedTrue)`
-            )
-            .run()
+          .prepare(
+            `CREATE INDEX IF NOT EXISTS ${tableName}_wst ON '${tableUuid}' (environmentWindSpeedTrue)`
+          )
+          .run()
           db
-            .prepare(
-              `CREATE INDEX IF NOT EXISTS ${tableName}_watg ON '${tableUuid}' (environmentWindAngleTrueGround)`
-            )
-            .run()
+          .prepare(
+            `CREATE INDEX IF NOT EXISTS ${tableName}_watg ON '${tableUuid}' (environmentWindAngleTrueGround)`
+          )
+          .run()
 
           var output = []
 
@@ -846,12 +846,12 @@ module.exports = function(app, options) {
                     var vmg = getVelocityMadeGood(speed, itemAngle)
                     //app.debug(`INSERT INTO '${tableUuid} '(environmentWindSpeedTrue, environmentWindAngleTrueGround, navigationSpeedThroughWater, performanceVelocityMadeGood ) VALUES (${windSpeeds[index-1]}, ${itemAngle}, ${speed}, ${vmg})`)
                     db
-                      .prepare(
-                        `INSERT INTO '${tableUuid}'(environmentWindSpeedTrue, environmentWindAngleTrueGround, navigationSpeedThroughWater, performanceVelocityMadeGood ) VALUES (${
-                          windSpeeds[index - 1]
-                        }, ${itemAngle}, ${speed}, ${vmg})`
-                      )
-                      .run()
+                    .prepare(
+                      `INSERT INTO '${tableUuid}'(environmentWindSpeedTrue, environmentWindAngleTrueGround, navigationSpeedThroughWater, performanceVelocityMadeGood ) VALUES (${
+                        windSpeeds[index - 1]
+                      }, ${itemAngle}, ${speed}, ${vmg})`
+                    )
+                    .run()
 
                     //app.debug("windspeed: " + windSpeeds[index-1] + " angle: " + itemAngle + " boatspeed: " + speed)
                   }
@@ -985,118 +985,123 @@ module.exports = function(app, options) {
       var windAngleIndex = Math.round((Math.PI + trueWindAngle) / twaInterval)
       var perfData = mainPolarData[windSpeedIndex]
       var perfIndex
+      if (perfData.beatAngles){
 
-      if (perfData.beatAngles.length == 0) {
-        perfData.beatAngles.push(trueWindAngle)
-        perfData.beatSpeeds.push(speedThroughWater)
-        perfIndex = 0
-      } else if (perfData.beatAngles.length == 1) {
-        if (
-          perfData.beatAngles[0] &&
-          Math.sign(trueWindAngle) != Math.sign(perfData.beatAngles[0])
-        ) {
+        if (perfData.beatAngles.length == 0) {
           perfData.beatAngles.push(trueWindAngle)
           perfData.beatSpeeds.push(speedThroughWater)
-          perfIndex = 1
-        } else {
           perfIndex = 0
-        }
-      } else {
-        if (
-          perfData.beatAngles[0] &&
-          Math.sign(trueWindAngle) != Math.sign(perfData.beatAngles[0])
-        ) {
-          perfIndex = 1
+        } else if (perfData.beatAngles.length == 1) {
+          if (
+            perfData.beatAngles[0] &&
+            Math.sign(trueWindAngle) != Math.sign(perfData.beatAngles[0])
+          ) {
+            perfData.beatAngles.push(trueWindAngle)
+            perfData.beatSpeeds.push(speedThroughWater)
+            perfIndex = 1
+          } else {
+            perfIndex = 0
+          }
         } else {
-          perfIndex = 0
+          if (
+            perfData.beatAngles[0] &&
+            Math.sign(trueWindAngle) != Math.sign(perfData.beatAngles[0])
+          ) {
+            perfIndex = 1
+          } else {
+            perfIndex = 0
+          }
+          var storedVmg = getVelocityMadeGood(
+            perfData.beatSpeeds[perfIndex],
+            perfData.beatAngles[perfIndex]
+          )
+          var actualVmg = getVelocityMadeGood(trueWindAngle, speedThroughWater)
+          if (actualVmg > storedVmg) {
+            perfData.beatAngles[perfIndex] = trueWindAngle
+            perfData.beatSpeeds[perfIndex] = speedThroughWater
+          }
         }
-        var storedVmg = getVelocityMadeGood(
-          perfData.beatSpeeds[perfIndex],
-          perfData.beatAngles[perfIndex]
-        )
-        var actualVmg = getVelocityMadeGood(trueWindAngle, speedThroughWater)
-        if (actualVmg > storedVmg) {
-          perfData.beatAngles[perfIndex] = trueWindAngle
-          perfData.beatSpeeds[perfIndex] = speedThroughWater
-        }
-      }
-
-      if (perfData.gybeAngles.length == 0) {
-        perfData.gybeAngles.push(trueWindAngle)
-        perfData.gybeSpeeds.push(speedThroughWater)
-      } else if (perfData.gybeAngles.length == 1) {
-        if (Math.sign(trueWindAngle) != Math.sign(perfData.gybeAngles[0])) {
+        if (perfData.gybeAngles.length == 0) {
           perfData.gybeAngles.push(trueWindAngle)
           perfData.gybeSpeeds.push(speedThroughWater)
-        }
-      } else {
-        Math.sign(trueWindAngle) != Math.sign(perfData.gybeAngles[0])
+        } else if (perfData.gybeAngles.length == 1) {
+          if (Math.sign(trueWindAngle) != Math.sign(perfData.gybeAngles[0])) {
+            perfData.gybeAngles.push(trueWindAngle)
+            perfData.gybeSpeeds.push(speedThroughWater)
+          }
+        } else {
+          Math.sign(trueWindAngle) != Math.sign(perfData.gybeAngles[0])
           ? (perfIndex = 1)
           : (perfIndex = 0)
-        var storedVmg = getVelocityMadeGood(
-          perfData.gybeSpeeds[perfIndex],
-          perfData.gybeAngles[perfIndex]
-        )
-        var actualVmg = getVelocityMadeGood(trueWindAngle, speedThroughWater)
-        if (actualVmg < storedVmg) {
-          perfData.gybeAngles[perfIndex] = trueWindAngle
-          perfData.gybeSpeeds[perfIndex] = speedThroughWater
+          var storedVmg = getVelocityMadeGood(
+            perfData.gybeSpeeds[perfIndex],
+            perfData.gybeAngles[perfIndex]
+          )
+          var actualVmg = getVelocityMadeGood(trueWindAngle, speedThroughWater)
+          if (actualVmg < storedVmg) {
+            perfData.gybeAngles[perfIndex] = trueWindAngle
+            perfData.gybeSpeeds[perfIndex] = speedThroughWater
+          }
         }
-      }
-      var beatangle = perfData.beatAngles[perfIndex]
-      pushDelta(app, {
-        key: "performance.beatAngle",
-        value: beatangle
-      })
-      pushDelta(app, {
-        key: "performance.beatAngleTargetSpeed",
-        value: perfData.beatSpeeds[perfIndex]
-      })
-      pushDelta(app, {
-        key: "performance.beatAngleVelocityMadeGood",
-        value: Math.max(actualVmg, storedVmg)
-      })
-      if (Math.abs(trueWindAngle) < Math.PI / 2) {
+        var beatangle = perfData.beatAngles[perfIndex]
         pushDelta(app, {
-          key: "performance.targetAngle",
-          value: perfData.beatAngles[perfIndex]
+          key: "performance.beatAngle",
+          value: beatangle
         })
         pushDelta(app, {
-          key: "performance.targetSpeed",
+          key: "performance.beatAngleTargetSpeed",
           value: perfData.beatSpeeds[perfIndex]
         })
-      }
-      pushDelta(app, {
-        key: "performance.gybeAngle",
-        value: perfData.gybeAngles[perfIndex]
-      })
-      pushDelta(app, {
-        key: "performance.gybeAngleTargetSpeed",
-        value: perfData.gybeSpeeds[perfIndex]
-      })
-      pushDelta(app, {
-        key: "performance.gybeAngleVelocityMadeGood",
-        value: Math.min(actualVmg, storedVmg)
-      })
-      if (Math.abs(trueWindAngle) > Math.PI / 2) {
         pushDelta(app, {
-          key: "performance.targetAngle",
+          key: "performance.beatAngleVelocityMadeGood",
+          value: Math.max(actualVmg, storedVmg)
+        })
+        if (Math.abs(trueWindAngle) < Math.PI / 2) {
+          pushDelta(app, {
+            key: "performance.targetAngle",
+            value: perfData.beatAngles[perfIndex]
+          })
+          pushDelta(app, {
+            key: "performance.targetSpeed",
+            value: perfData.beatSpeeds[perfIndex]
+          })
+        }
+        pushDelta(app, {
+          key: "performance.gybeAngle",
           value: perfData.gybeAngles[perfIndex]
         })
         pushDelta(app, {
-          key: "performance.targetSpeed",
+          key: "performance.gybeAngleTargetSpeed",
           value: perfData.gybeSpeeds[perfIndex]
         })
+        pushDelta(app, {
+          key: "performance.gybeAngleVelocityMadeGood",
+          value: Math.min(actualVmg, storedVmg)
+        })
+        if (Math.abs(trueWindAngle) > Math.PI / 2) {
+          pushDelta(app, {
+            key: "performance.targetAngle",
+            value: perfData.gybeAngles[perfIndex]
+          })
+          pushDelta(app, {
+            key: "performance.targetSpeed",
+            value: perfData.gybeSpeeds[perfIndex]
+          })
+        }
+        pushDelta(app, {
+          key: "performance.polarSpeed",
+          value: perfData.polarSpeeds[windAngleIndex]
+        })
+        pushDelta(app, {
+          key: "performance.polarSpeedRatio",
+          value: speedThroughWater / perfData.polarSpeeds[windAngleIndex]
+        })
       }
-      pushDelta(app, {
-        key: "performance.polarSpeed",
-        value: perfData.polarSpeeds[windAngleIndex]
-      })
-      pushDelta(app, {
-        key: "performance.polarSpeedRatio",
-        value: speedThroughWater / perfData.polarSpeeds[windAngleIndex]
-      })
-    } else {
+      else {
+        return
+      }
+    }
+    else {
       return
     }
   }
@@ -1111,7 +1116,7 @@ function getTrueWindAngle(speed, trueWindSpeed, apparentWindspeed, windAngle) {
   //alpha is true wind angle
 
   var cosAlpha =
-    (apparentWindspeed * Math.cos(windAngle) - speed) / trueWindSpeed
+  (apparentWindspeed * Math.cos(windAngle) - speed) / trueWindSpeed
 
   if (windAngle === 0) {
     return 0
@@ -1120,11 +1125,11 @@ function getTrueWindAngle(speed, trueWindSpeed, apparentWindspeed, windAngle) {
   } else if (cosAlpha > 1 || cosAlpha < -1) {
     console.log(
       "invalid triangle aws: " +
-        apparentWindspeed +
-        " tws: " +
-        trueWindSpeed +
-        " bsp: " +
-        speed
+      apparentWindspeed +
+      " tws: " +
+      trueWindSpeed +
+      " bsp: " +
+      speed
     )
     return null
   } else {
@@ -1144,8 +1149,8 @@ function getTrueWindAngle(speed, trueWindSpeed, apparentWindspeed, windAngle) {
 function getTrueWindSpeed(speed, windSpeed, windAngle) {
   return Math.sqrt(
     Math.pow(windSpeed, 2) +
-      Math.pow(speed, 2) -
-      2 * windSpeed * speed * Math.cos(windAngle)
+    Math.pow(speed, 2) -
+    2 * windSpeed * speed * Math.cos(windAngle)
   )
 }
 
