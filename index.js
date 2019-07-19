@@ -985,7 +985,7 @@ module.exports = function(app, options) {
       var windAngleIndex = Math.round((Math.PI + trueWindAngle) / twaInterval)
       var perfData = mainPolarData[windSpeedIndex]
       var perfIndex
-      if (perfData.beatAngles){
+      if (perfData && perfData.beatAngles){
 
         if (perfData.beatAngles.length == 0) {
           perfData.beatAngles.push(trueWindAngle)
