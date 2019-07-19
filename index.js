@@ -660,6 +660,11 @@ module.exports = function(app, options) {
             title: " ",
             type: "object",
             properties: {
+              mirror: {
+                type: "boolean",
+                title: "Mirror polar port and stbd?",
+                default: true
+              },
               polarName: {
                 type: "string",
                 title: "Name of polar ('design', 'lastYear' etc)",
@@ -813,11 +818,7 @@ module.exports = function(app, options) {
               if (index > 0) {
                 //first is "twa/tws"
                 //var windSpeedItem = item//@TODO: remove and replace with below
-                var windSpeedItem = utilSK.transform(
-                  item,
-                  table.windSpeedUnit,
-                  "ms"
-                )
+                var windSpeedItem = utilSK.transform(item,table.windSpeedUnit,"ms")
                 windSpeeds.push(Number(windSpeedItem))
               }
             }
@@ -826,33 +827,36 @@ module.exports = function(app, options) {
             function storeSpeeds(item, index) {
               if (index > 0) {
                 //first row is header, and already parsed
-                //var itemAngle = Number(item[0])//@TODO: remove and replace with below
-                var itemAngle = utilSK.transform(
-                  Number(item[0]),
-                  table.angleUnit,
-                  "rad"
-                )
+                var itemAngle = utilSK.transform(Number(item[0]),table.angleUnit,"rad")
                 //app.debug("itemAngle: " +itemAngle)
                 item.forEach(storeSpeed)
                 function storeSpeed(speedItem, index) {
                   //var speed = Number(speedItem)//@TODO: replace with below
-                  var speed = utilSK.transform(
-                    speedItem,
-                    table.boatSpeedUnit,
-                    "ms"
-                  )
+                  var speed = utilSK.transform(speedItem,table.boatSpeedUnit,  "ms"  )
                   if (index > 0 && speedItem > 0) {
                     //first item is angle, already parsed
                     var vmg = getVelocityMadeGood(speed, itemAngle)
                     //app.debug(`INSERT INTO '${tableUuid} '(environmentWindSpeedTrue, environmentWindAngleTrueGround, navigationSpeedThroughWater, performanceVelocityMadeGood ) VALUES (${windSpeeds[index-1]}, ${itemAngle}, ${speed}, ${vmg})`)
-                    db
-                    .prepare(
+                    db.prepare(
+                      `INSERT INTO '${tableUuid}'(environmentWindSpeedTrue, environmentWindAngleTrueGround, navigationSpeedThroughWater, performanceVelocityMadeGood ) VALUES (${
+                        windSpeeds[index - 1]
+                      }, 0, 0, 0)`
+                    )
+                    .run()
+                    db.prepare(
                       `INSERT INTO '${tableUuid}'(environmentWindSpeedTrue, environmentWindAngleTrueGround, navigationSpeedThroughWater, performanceVelocityMadeGood ) VALUES (${
                         windSpeeds[index - 1]
                       }, ${itemAngle}, ${speed}, ${vmg})`
                     )
                     .run()
-
+                    if(table.mirror){
+                      db.prepare(
+                        `INSERT INTO '${tableUuid}'(environmentWindSpeedTrue, environmentWindAngleTrueGround, navigationSpeedThroughWater, performanceVelocityMadeGood ) VALUES (${
+                          windSpeeds[index - 1]
+                        }, ${-itemAngle}, ${speed}, ${vmg})`
+                      )
+                      .run()
+                    }
                     //app.debug("windspeed: " + windSpeeds[index-1] + " angle: " + itemAngle + " boatspeed: " + speed)
                   }
                 }
@@ -964,14 +968,8 @@ module.exports = function(app, options) {
     }
   }
 
-  function getTarget(
-    app,
-    trueWindSpeed,
-    windInterval,
-    trueWindAngle,
-    twaInterval,
-    speedThroughWater
-  ) {
+  function getTarget(app, trueWindSpeed, windInterval, trueWindAngle, twaInterval, speedThroughWater)
+  {
     //app.debug("getTarget called")
     //if no numbers, return NULL
     if (
@@ -1106,6 +1104,8 @@ module.exports = function(app, options) {
     }
   }
 }
+module.exports.app = "app"
+module.exports.options = "options"
 
 function getTrueWindAngle(speed, trueWindSpeed, apparentWindspeed, windAngle) {
   // alpha=arccos((A*cos(beta)-V)/W)
