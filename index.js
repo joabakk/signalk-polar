@@ -92,6 +92,17 @@ module.exports = function(app, options) {
     })
   }
 
+  function deletePolarTable(uuid){
+    app.debug(`DROP TABLE '${uuid}'`)
+    app.debug(`DELETE FROM 'tableUuids' WHERE uuid='${uuid}'`)
+    const info1 = db.prepare(`DROP TABLE '${uuid}'`).run()
+    const info2 = db.prepare(`DELETE FROM 'tableUuids' WHERE uuid='${uuid}'`).run()
+    polarList =  _.remove(polarList, function(n) {
+      return n.uuid == uuid
+    })
+    return{info1, info2}
+  }
+
   function getPolarTable(uuid) {
     var windspeed,
     windSpeedArray,
@@ -1016,6 +1027,13 @@ module.exports = function(app, options) {
         res.contentType("application/json")
         app.debug(polarList)
         res.send(polarList)
+      })
+
+      router.get("/deletePolarTable", (req, res) =>{
+        var uuid = req.query.uuid
+        app.debug("requested to delete " + uuid)
+        deletePolarTable(uuid)
+        res.redirect("./listPolarTables")
       })
 
     },
