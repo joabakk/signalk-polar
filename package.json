@@ -46,5 +46,5 @@
     "watch": "watchify graphing.js -o public/bundle.js",
     "updatepolars": "svn export --force https://github.com/seandepagnier/weather_routing_pi/trunk/data/polars ./seandepagnier"
   },
-  "version": "2.1.0"
+  "version": "2.1.1"
 }
