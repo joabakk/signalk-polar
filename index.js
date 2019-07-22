@@ -93,10 +93,10 @@ module.exports = function(app, options) {
   }
 
   function deletePolarTable(uuid){
-    app.debug(`DROP TABLE '${uuid}'`)
-    app.debug(`DELETE FROM 'tableUuids' WHERE uuid='${uuid}'`)
-    const info1 = db.prepare(`DROP TABLE '${uuid}'`).run()
-    const info2 = db.prepare(`DELETE FROM 'tableUuids' WHERE uuid='${uuid}'`).run()
+    app.debug(`DROP TABLE IF EXISTS '${uuid}'`)
+    app.debug(`DELETE FROM 'tableUuids' WHERE EXISTS (SELECT * FROM 'tableUuids' WHERE uuid='${uuid}')`)
+    const info1 = db.prepare(`DROP TABLE IF EXISTS '${uuid}'`).run()
+    const info2 = db.prepare(`DELETE FROM 'tableUuids' WHERE EXISTS (SELECT * FROM 'tableUuids' WHERE uuid='${uuid}')`).run()
     polarList =  _.remove(polarList, function(n) {
       return n.uuid == uuid
     })
@@ -1032,7 +1032,7 @@ module.exports = function(app, options) {
       router.get("/deletePolarTable", (req, res) =>{
         var uuid = req.query.uuid
         app.debug("requested to delete " + uuid)
-        result = deletePolarTable(uuid)
+        deletePolarTable(uuid)
         res.redirect("./listPolarTables")
       })
 
