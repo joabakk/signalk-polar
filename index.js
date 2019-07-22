@@ -21,6 +21,10 @@ const _ = require("lodash")
 const Database = require("better-sqlite3")
 const uuidv4 = require("uuid/v4")
 const parse = require("csv-parse")
+const fs = require("fs")
+const path = require("path")
+const csv=require('csvtojson')
+
 var db, json
 var pushInterval
 
@@ -45,9 +49,10 @@ var twaInterval, windSpeedIndex, windAngleIndex
 var twsInterval
 var maxWind
 var dbFile
-var allPolars
+var allPolars, polarList
 var polarArray = []
 var stmt
+var csvList = ["ignore"]
 
 const items = [
   "performance.velocityMadeGood", // if empty, populate from this plugin
@@ -64,8 +69,16 @@ module.exports = function(app, options) {
   "use strict"
   var client
   var selfContext = "vessels." + app.selfId
+  var userDir = app.config.configPath
   var plugin = {}
   plugin.id = "signalk-polar"
+
+  var csvFolder = path.join(userDir, '/node_modules/', plugin.id, '/seandepagnier')
+  fs.readdirSync(csvFolder).forEach(file => {
+    if (file != 'Example'){
+      csvList.push(file)
+    }
+  })
 
   var unsubscribes = []
   var shouldStore = function(path) {
@@ -77,6 +90,17 @@ module.exports = function(app, options) {
       const polarList = db.prepare("select * from tableUuids").all()
       resolve(polarList)
     })
+  }
+
+  function deletePolarTable(uuid){
+    app.debug(`DROP TABLE IF EXISTS '${uuid}'`)
+    app.debug(`DELETE FROM 'tableUuids' WHERE EXISTS (SELECT * FROM 'tableUuids' WHERE uuid='${uuid}')`)
+    const info1 = db.prepare(`DROP TABLE IF EXISTS '${uuid}'`).run()
+    const info2 = db.prepare(`DELETE FROM 'tableUuids' WHERE EXISTS (SELECT * FROM 'tableUuids' WHERE uuid='${uuid}')`).run()
+    polarList =  _.remove(polarList, function(n) {
+      return n.uuid == uuid
+    })
+    return{info1, info2}
   }
 
   function getPolarTable(uuid) {
@@ -112,10 +136,9 @@ module.exports = function(app, options) {
           polarData: []
         }
       }
-      app.debug(JSON.stringify(response))
+      //app.debug(JSON.stringify(response))
       return response
     }
-    //response = getInfo()
 
     function getWindSpeedArray(uuid) {
       return new Promise((resolve, reject) => {
@@ -367,7 +390,7 @@ module.exports = function(app, options) {
             trimmedPolar.push(data)
           }
         })
-        app.debug("trim polar finished")
+        //app.debug("trim polar finished")
         return trimmedPolar
       }
       if (false) {
@@ -657,9 +680,14 @@ module.exports = function(app, options) {
           type: "array",
           title: "User input polars",
           items: {
-            title: " ",
+            title: "",
             type: "object",
             properties: {
+              mirror: {
+                type: "boolean",
+                title: "Mirror polar port and stbd?",
+                default: true
+              },
               polarName: {
                 type: "string",
                 title: "Name of polar ('design', 'lastYear' etc)",
@@ -694,10 +722,17 @@ module.exports = function(app, options) {
                 enum: ["knots", "ms", "kph", "mph"],
                 enumNames: ["Knots", "m/s", "km/h", "mph"]
               },
+              csvPreset: {
+                type: "string",
+                title: "Preset polars from https://github.com/seandepagnier/weather_routing_pi (server restart...?)",
+                default: "ignore",
+                enum: csvList,
+                enumNames: csvList
+              },
               csvTable: {
                 type: "string",
                 title:
-                "enter csv with polar in http://jieter.github.io/orc-data/site/ style"
+                "OR enter csv with polar in http://jieter.github.io/orc-data/site/ style"
               }
             }
           }
@@ -705,6 +740,8 @@ module.exports = function(app, options) {
       }
     },
     start: function(options) {
+
+      //app.debug(csvList)
       dbFile = options.sqliteFile
       twaInterval = options.angleResolution * Math.PI / 180
       twsInterval = options.twsInterval
@@ -756,6 +793,7 @@ module.exports = function(app, options) {
       .run()
 
       if (options.entered && options.entered.length > 0) {
+        var counter = 0
         options.entered.forEach(table => {
           var tableName = table.polarName.replace(/ /gi, "_")
           var tableUuid
@@ -764,7 +802,7 @@ module.exports = function(app, options) {
             //app.debug("Polar uuid exists: '" + tableUuid + "'", typeof(tableUuid))
           } else {
             tableUuid = uuidv4()
-            table.polarUuid = tableUuid
+            options.entered[counter].polarUuid = tableUuid
             //app.debug("Polar uuid does not exist, creating '" + tableUuid + "'")
             app.savePluginOptions(options, function(err, result) {
               if (err) {
@@ -772,6 +810,7 @@ module.exports = function(app, options) {
               }
             })
           }
+
           app.debug("polar name is " + tableName)
           create = db.prepare(`DROP TABLE IF EXISTS '${tableUuid}'`).run()
           db
@@ -796,11 +835,56 @@ module.exports = function(app, options) {
           .run()
 
           var output = []
+          var delimiter, lineBreak, csvTable
+          if(!table.csvTable && table.csvPreset && table.csvPreset != "ignore"){
+            console.log(table.csvPreset)
+            var extension = path.extname(table.csvPreset)
+            //app.debug("extension: " + extension)
+            var data = fs.readFileSync(path.join(userDir, "/node_modules/", plugin.id, "/seandepagnier/", table.csvPreset), 'utf8', function (err, data) {
+              if (err) {
+                console.log(err);
+                process.exit(1);
+              }
+            })
+            var csvStrBack
+            if (extension == '.txt'){
+              csvStrBack = data.split('\n').slice(1).join('\n')
+            }
+            else {
+              csvStrBack = data
+            }
 
-          parse(table.csvTable, {
+            console.log(csvStrBack)
+            var csvStr = csvStrBack.replace(/\\/g, '/')
+            console.log(csvStr)
+            if (extension == '.csv'){
+              var csvTab = csvStrBack.trim().replace(/\°/g, '')
+              csvTable = csvTab.replace(/( [\r,\n]+)|(;\D*\n)|(;\D*[\r,\n]+)/g, '\r\n')
+            }
+            else {
+              csvTable = csvStr.trim().replace(/(\t+|\t| |\t\t|  )(?!\n| \n|$)/g, ";")
+            }
+            //app.debug(csvTable)
+
+            options.entered[counter].csvTable = csvTable
+            app.savePluginOptions(options, function(err, result) {
+              if (err) {
+                console.log(err)
+              }
+            })
+
+          }
+          else {
+            csvTable = table.csvTable
+          }
+          delimiter = ";"
+
+
+          parse(csvTable, {
             trim: true,
             skip_empty_lines: true,
-            delimiter: ";"
+            delimiter: delimiter,
+            record_delimiter: lineBreak
           }).on("readable", function() {
             let record
             while ((record = this.read())) {
@@ -812,55 +896,50 @@ module.exports = function(app, options) {
             function listSpeeds(item, index) {
               if (index > 0) {
                 //first is "twa/tws"
-                //var windSpeedItem = item//@TODO: remove and replace with below
-                var windSpeedItem = utilSK.transform(
-                  item,
-                  table.windSpeedUnit,
-                  "ms"
-                )
+                var windSpeedItem = utilSK.transform(item,table.windSpeedUnit,"ms")
                 windSpeeds.push(Number(windSpeedItem))
               }
             }
-            //app.debug("windspeeds: " + JSON.stringify(windSpeeds))
+            app.debug("windspeeds: " + JSON.stringify(windSpeeds))
             output.forEach(storeSpeeds)
             function storeSpeeds(item, index) {
               if (index > 0) {
                 //first row is header, and already parsed
-                //var itemAngle = Number(item[0])//@TODO: remove and replace with below
-                var itemAngle = utilSK.transform(
-                  Number(item[0]),
-                  table.angleUnit,
-                  "rad"
-                )
+                var itemAngle = utilSK.transform(Number(item[0]),table.angleUnit,"rad")
                 //app.debug("itemAngle: " +itemAngle)
                 item.forEach(storeSpeed)
                 function storeSpeed(speedItem, index) {
                   //var speed = Number(speedItem)//@TODO: replace with below
-                  var speed = utilSK.transform(
-                    speedItem,
-                    table.boatSpeedUnit,
-                    "ms"
-                  )
+                  var speed = utilSK.transform(speedItem,table.boatSpeedUnit,  "ms"  )
                   if (index > 0 && speedItem > 0) {
                     //first item is angle, already parsed
                     var vmg = getVelocityMadeGood(speed, itemAngle)
+                    var windSpeed = windSpeeds[index-1]
                     //app.debug(`INSERT INTO '${tableUuid} '(environmentWindSpeedTrue, environmentWindAngleTrueGround, navigationSpeedThroughWater, performanceVelocityMadeGood ) VALUES (${windSpeeds[index-1]}, ${itemAngle}, ${speed}, ${vmg})`)
-                    db
-                    .prepare(
-                      `INSERT INTO '${tableUuid}'(environmentWindSpeedTrue, environmentWindAngleTrueGround, navigationSpeedThroughWater, performanceVelocityMadeGood ) VALUES (${
-                        windSpeeds[index - 1]
-                      }, ${itemAngle}, ${speed}, ${vmg})`
+                    db.prepare(
+                      `INSERT INTO '${tableUuid}'(environmentWindSpeedTrue, environmentWindAngleTrueGround, navigationSpeedThroughWater, performanceVelocityMadeGood ) VALUES (${windSpeed}, 0, 0, 0)`
                     )
                     .run()
-
+                    db.prepare(
+                      `INSERT INTO '${tableUuid}'(environmentWindSpeedTrue, environmentWindAngleTrueGround, navigationSpeedThroughWater, performanceVelocityMadeGood ) VALUES (${windSpeed}, ${itemAngle}, ${speed}, ${vmg})`
+                    )
+                    .run()
+                    if(table.mirror){
+                      db.prepare(
+                        `INSERT INTO '${tableUuid}'(environmentWindSpeedTrue, environmentWindAngleTrueGround, navigationSpeedThroughWater, performanceVelocityMadeGood ) VALUES (${windSpeed}, ${-itemAngle}, ${speed}, ${vmg})`
+                      )
+                      .run()
+                    }
                     //app.debug("windspeed: " + windSpeeds[index-1] + " angle: " + itemAngle + " boatspeed: " + speed)
                   }
                 }
               }
             }
           })
+          counter += 1
         })
       }
+
       const getMainPolar = async () => {
         var mainpolardata = await getPolarTable(mainPolarUuid)
         return mainpolardata
@@ -873,7 +952,7 @@ module.exports = function(app, options) {
       mainPolarFunc()
 
       const getAllPolars = async () => {
-        const polarList = await listPolarTables()
+        polarList = await listPolarTables()
         const results = await Promise.all(
           polarList.map(item => {
             polarArray.push(item.uuid)
@@ -889,11 +968,12 @@ module.exports = function(app, options) {
         const response = await getAllPolars()
         app.debug(response)
         allPolars = response
+        return true
       }
       allPolarFunc()
 
       pushInterval = setInterval(function() {
-        //app.debug("tws: " + tws + " abs twa: " + Math.abs(twa) + " stw: " + stw)
+        ////app.debug("tws: " + tws + " abs twa: " + Math.abs(twa) + " stw: " + stw)
         getTarget(app, tws, twsInterval, twa, twaInterval, stw)
         //app.debug("sent to setInterval:" +  tws + " : " + twsInterval + " : " + Math.abs(twa) + " : " + twaInterval)
       }, 1000)
@@ -945,13 +1025,21 @@ module.exports = function(app, options) {
 
       router.get("/listPolarTables", (req, res) => {
         res.contentType("application/json")
-        var response = listPolarTables()
-        res.send(response)
+        app.debug(polarList)
+        res.send(polarList)
+      })
+
+      router.get("/deletePolarTable", (req, res) =>{
+        var uuid = req.query.uuid
+        app.debug("requested to delete " + uuid)
+        deletePolarTable(uuid)
+        res.redirect("./listPolarTables")
       })
 
     },
     stop: function() {
       app.debug("Stopping")
+      var csvList = ["ignore"]
       unsubscribes.forEach(f => f())
       items.length = items.length - 1
       engineSKPath = ""
@@ -964,14 +1052,8 @@ module.exports = function(app, options) {
     }
   }
 
-  function getTarget(
-    app,
-    trueWindSpeed,
-    windInterval,
-    trueWindAngle,
-    twaInterval,
-    speedThroughWater
-  ) {
+  function getTarget(app, trueWindSpeed, windInterval, trueWindAngle, twaInterval, speedThroughWater)
+  {
     //app.debug("getTarget called")
     //if no numbers, return NULL
     if (
@@ -1106,6 +1188,8 @@ module.exports = function(app, options) {
     }
   }
 }
+module.exports.app = "app"
+module.exports.options = "options"
 
 function getTrueWindAngle(speed, trueWindSpeed, apparentWindspeed, windAngle) {
   // alpha=arccos((A*cos(beta)-V)/W)

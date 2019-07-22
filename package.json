@@ -5,14 +5,17 @@
     "better-sqlite3": "^5.4.0",
     "csv": "^5.1.1",
     "express": "^4.16.3",
+    "highcharts": "^7.1.2",
     "lodash": "^4.17.11",
     "uuid": "^3.3.2"
   },
   "description": "Signal K server plugin to store and retrieve polar data with sqlite3 db",
   "devDependencies": {
+    "browserify": "^16.3.0",
     "chai": "^4.0.0",
     "chai-things": "^0.2.0",
-    "mocha": "^5.0.1"
+    "mocha": "^5.0.1",
+    "watchify": "^3.11.1"
   },
   "directories": {},
   "dist": {
@@ -20,7 +23,8 @@
     "tarball": "https://registry.npmjs.org/signalk-polar/-/signalk-polar-1.3.1.tgz"
   },
   "keywords": [
-    "signalk-node-server-plugin"
+    "signalk-node-server-plugin",
+    "signalk-webapp"
   ],
   "license": "ISC",
   "author": {
@@ -37,7 +41,10 @@
   "optionalDependencies": {},
   "readme": "ERROR: No README data found!",
   "scripts": {
-    "test": "mocha"
+    "test": "mocha",
+    "build": "browserify graphing.js -o public/bundle.js",
+    "watch": "watchify graphing.js -o public/bundle.js",
+    "updatepolars": "svn export --force https://github.com/seandepagnier/weather_routing_pi/trunk/data/polars ./seandepagnier"
   },
-  "version": "2.0.3"
+  "version": "2.1.0"
 }
