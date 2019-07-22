@@ -930,7 +930,7 @@ module.exports = function(app, options) {
                       )
                       .run()
                     }
-                    app.debug("windspeed: " + windSpeeds[index-1] + " angle: " + itemAngle + " boatspeed: " + speed)
+                    //app.debug("windspeed: " + windSpeeds[index-1] + " angle: " + itemAngle + " boatspeed: " + speed)
                   }
                 }
               }
@@ -1032,7 +1032,7 @@ module.exports = function(app, options) {
       router.get("/deletePolarTable", (req, res) =>{
         var uuid = req.query.uuid
         app.debug("requested to delete " + uuid)
-        deletePolarTable(uuid)
+        result = deletePolarTable(uuid)
         res.redirect("./listPolarTables")
       })
 
