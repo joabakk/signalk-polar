@@ -49,7 +49,7 @@ var twaInterval, windSpeedIndex, windAngleIndex
 var twsInterval
 var maxWind
 var dbFile
-var allPolars
+var allPolars, polarList
 var polarArray = []
 var stmt
 var csvList = ["ignore"]
@@ -799,6 +799,7 @@ module.exports = function(app, options) {
               }
             })
           }
+
           app.debug("polar name is " + tableName)
           create = db.prepare(`DROP TABLE IF EXISTS '${tableUuid}'`).run()
           db
@@ -927,6 +928,7 @@ module.exports = function(app, options) {
           counter += 1
         })
       }
+
       const getMainPolar = async () => {
         var mainpolardata = await getPolarTable(mainPolarUuid)
         return mainpolardata
@@ -939,7 +941,7 @@ module.exports = function(app, options) {
       mainPolarFunc()
 
       const getAllPolars = async () => {
-        const polarList = await listPolarTables()
+        polarList = await listPolarTables()
         const results = await Promise.all(
           polarList.map(item => {
             polarArray.push(item.uuid)
@@ -1012,8 +1014,8 @@ module.exports = function(app, options) {
 
       router.get("/listPolarTables", (req, res) => {
         res.contentType("application/json")
-        var response = listPolarTables()
-        res.send(response)
+        app.debug(polarList)
+        res.send(polarList)
       })
 
     },
