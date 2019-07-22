@@ -125,10 +125,9 @@ module.exports = function(app, options) {
           polarData: []
         }
       }
-      app.debug(JSON.stringify(response))
+      //app.debug(JSON.stringify(response))
       return response
     }
-    //response = getInfo()
 
     function getWindSpeedArray(uuid) {
       return new Promise((resolve, reject) => {
@@ -380,7 +379,7 @@ module.exports = function(app, options) {
             trimmedPolar.push(data)
           }
         })
-        app.debug("trim polar finished")
+        //app.debug("trim polar finished")
         return trimmedPolar
       }
       if (false) {
@@ -828,6 +827,7 @@ module.exports = function(app, options) {
           if(!table.csvTable && table.csvPreset && table.csvPreset != "ignore"){
             console.log(table.csvPreset)
             var extension = path.extname(table.csvPreset)
+            //app.debug("extension: " + extension)
             var data = fs.readFileSync(path.join(userDir, "/node_modules/", plugin.id, "/seandepagnier/", table.csvPreset), 'utf8', function (err, data) {
               if (err) {
                 console.log(err);
@@ -835,7 +835,7 @@ module.exports = function(app, options) {
               }
             })
             var csvStrBack
-            if (extension = '.txt'){
+            if (extension == '.txt'){
               csvStrBack = data.split('\n').slice(1).join('\n')
             }
             else {
@@ -846,12 +846,13 @@ module.exports = function(app, options) {
             var csvStr = csvStrBack.replace(/\\/g, '/')
             console.log(csvStr)
             if (extension == '.csv'){
-              csvTable = csvStr.trim().replace(/\°/g, '')
+              var csvTab = csvStrBack.trim().replace(/\°/g, '')
+              csvTable = csvTab.replace(/( [\r,\n]+)|(;\D*\n)|(;\D*[\r,\n]+)/g, '\r\n')
             }
             else {
               csvTable = csvStr.trim().replace(/(\t+|\t| |\t\t|  )(?!\n| \n|$)/g, ";")
             }
-            app.debug(csvTable)
+            //app.debug(csvTable)
 
             options.entered[counter].csvTable = csvTable
             app.savePluginOptions(options, function(err, result) {
@@ -865,7 +866,6 @@ module.exports = function(app, options) {
             csvTable = table.csvTable
           }
           delimiter = ";"
-          lineBreak = '\n'
 
 
           parse(csvTable, {
@@ -878,7 +878,7 @@ module.exports = function(app, options) {
             while ((record = this.read())) {
               output.push(record)
             }
-            app.debug(JSON.stringify(output))
+            //app.debug(JSON.stringify(output))
             var windSpeeds = []
             output[0].forEach(listSpeeds)
             function listSpeeds(item, index) {
@@ -888,7 +888,7 @@ module.exports = function(app, options) {
                 windSpeeds.push(Number(windSpeedItem))
               }
             }
-            //app.debug("windspeeds: " + JSON.stringify(windSpeeds))
+            app.debug("windspeeds: " + JSON.stringify(windSpeeds))
             output.forEach(storeSpeeds)
             function storeSpeeds(item, index) {
               if (index > 0) {
@@ -902,28 +902,23 @@ module.exports = function(app, options) {
                   if (index > 0 && speedItem > 0) {
                     //first item is angle, already parsed
                     var vmg = getVelocityMadeGood(speed, itemAngle)
+                    var windSpeed = windSpeeds[index-1]
                     //app.debug(`INSERT INTO '${tableUuid} '(environmentWindSpeedTrue, environmentWindAngleTrueGround, navigationSpeedThroughWater, performanceVelocityMadeGood ) VALUES (${windSpeeds[index-1]}, ${itemAngle}, ${speed}, ${vmg})`)
                     db.prepare(
-                      `INSERT INTO '${tableUuid}'(environmentWindSpeedTrue, environmentWindAngleTrueGround, navigationSpeedThroughWater, performanceVelocityMadeGood ) VALUES (${
-                        windSpeeds[index - 1]
-                      }, 0, 0, 0)`
+                      `INSERT INTO '${tableUuid}'(environmentWindSpeedTrue, environmentWindAngleTrueGround, navigationSpeedThroughWater, performanceVelocityMadeGood ) VALUES (${windSpeed}, 0, 0, 0)`
                     )
                     .run()
                     db.prepare(
-                      `INSERT INTO '${tableUuid}'(environmentWindSpeedTrue, environmentWindAngleTrueGround, navigationSpeedThroughWater, performanceVelocityMadeGood ) VALUES (${
-                        windSpeeds[index - 1]
-                      }, ${itemAngle}, ${speed}, ${vmg})`
+                      `INSERT INTO '${tableUuid}'(environmentWindSpeedTrue, environmentWindAngleTrueGround, navigationSpeedThroughWater, performanceVelocityMadeGood ) VALUES (${windSpeed}, ${itemAngle}, ${speed}, ${vmg})`
                     )
                     .run()
                     if(table.mirror){
                       db.prepare(
-                        `INSERT INTO '${tableUuid}'(environmentWindSpeedTrue, environmentWindAngleTrueGround, navigationSpeedThroughWater, performanceVelocityMadeGood ) VALUES (${
-                          windSpeeds[index - 1]
-                        }, ${-itemAngle}, ${speed}, ${vmg})`
+                        `INSERT INTO '${tableUuid}'(environmentWindSpeedTrue, environmentWindAngleTrueGround, navigationSpeedThroughWater, performanceVelocityMadeGood ) VALUES (${windSpeed}, ${-itemAngle}, ${speed}, ${vmg})`
                       )
                       .run()
                     }
-                    //app.debug("windspeed: " + windSpeeds[index-1] + " angle: " + itemAngle + " boatspeed: " + speed)
+                    app.debug("windspeed: " + windSpeeds[index-1] + " angle: " + itemAngle + " boatspeed: " + speed)
                   }
                 }
               }
@@ -960,11 +955,12 @@ module.exports = function(app, options) {
         const response = await getAllPolars()
         app.debug(response)
         allPolars = response
+        return true
       }
       allPolarFunc()
 
       pushInterval = setInterval(function() {
-        //app.debug("tws: " + tws + " abs twa: " + Math.abs(twa) + " stw: " + stw)
+        ////app.debug("tws: " + tws + " abs twa: " + Math.abs(twa) + " stw: " + stw)
         getTarget(app, tws, twsInterval, twa, twaInterval, stw)
         //app.debug("sent to setInterval:" +  tws + " : " + twsInterval + " : " + Math.abs(twa) + " : " + twaInterval)
       }, 1000)
