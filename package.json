@@ -43,7 +43,8 @@
   "scripts": {
     "test": "mocha",
     "build": "browserify graphing.js -o public/bundle.js",
-    "watch": "watchify graphing.js -o public/bundle.js"
+    "watch": "watchify graphing.js -o public/bundle.js",
+    "updatepolars": "svn export --force https://github.com/seandepagnier/weather_routing_pi/trunk/data/polars ./seandepagnier"
   },
   "version": "2.0.3"
 }

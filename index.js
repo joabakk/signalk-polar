@@ -21,6 +21,10 @@ const _ = require("lodash")
 const Database = require("better-sqlite3")
 const uuidv4 = require("uuid/v4")
 const parse = require("csv-parse")
+const fs = require("fs")
+const path = require("path")
+const csv=require('csvtojson')
+
 var db, json
 var pushInterval
 
@@ -48,6 +52,7 @@ var dbFile
 var allPolars
 var polarArray = []
 var stmt
+var csvList = ["ignore"]
 
 const items = [
   "performance.velocityMadeGood", // if empty, populate from this plugin
@@ -64,8 +69,16 @@ module.exports = function(app, options) {
   "use strict"
   var client
   var selfContext = "vessels." + app.selfId
+  var userDir = app.config.configPath
   var plugin = {}
   plugin.id = "signalk-polar"
+
+  var csvFolder = path.join(userDir, '/node_modules/', plugin.id, '/seandepagnier')
+  fs.readdirSync(csvFolder).forEach(file => {
+    if (file != 'Example'){
+      csvList.push(file)
+    }
+  })
 
   var unsubscribes = []
   var shouldStore = function(path) {
@@ -657,7 +670,7 @@ module.exports = function(app, options) {
           type: "array",
           title: "User input polars",
           items: {
-            title: " ",
+            title: "",
             type: "object",
             properties: {
               mirror: {
@@ -699,10 +712,17 @@ module.exports = function(app, options) {
                 enum: ["knots", "ms", "kph", "mph"],
                 enumNames: ["Knots", "m/s", "km/h", "mph"]
               },
+              csvPreset: {
+                type: "string",
+                title: "Preset polars from https://github.com/seandepagnier/weather_routing_pi (server restart...?)",
+                default: "ignore",
+                enum: csvList,
+                enumNames: csvList
+              },
               csvTable: {
                 type: "string",
                 title:
-                "enter csv with polar in http://jieter.github.io/orc-data/site/ style"
+                "OR enter csv with polar in http://jieter.github.io/orc-data/site/ style"
               }
             }
           }
@@ -710,6 +730,8 @@ module.exports = function(app, options) {
       }
     },
     start: function(options) {
+
+      //app.debug(csvList)
       dbFile = options.sqliteFile
       twaInterval = options.angleResolution * Math.PI / 180
       twsInterval = options.twsInterval
@@ -761,6 +783,7 @@ module.exports = function(app, options) {
       .run()
 
       if (options.entered && options.entered.length > 0) {
+        var counter = 0
         options.entered.forEach(table => {
           var tableName = table.polarName.replace(/ /gi, "_")
           var tableUuid
@@ -769,7 +792,7 @@ module.exports = function(app, options) {
             //app.debug("Polar uuid exists: '" + tableUuid + "'", typeof(tableUuid))
           } else {
             tableUuid = uuidv4()
-            table.polarUuid = tableUuid
+            options.entered[counter].polarUuid = tableUuid
             //app.debug("Polar uuid does not exist, creating '" + tableUuid + "'")
             app.savePluginOptions(options, function(err, result) {
               if (err) {
@@ -801,23 +824,66 @@ module.exports = function(app, options) {
           .run()
 
           var output = []
+          var delimiter, lineBreak, csvTable
+          if(!table.csvTable && table.csvPreset && table.csvPreset != "ignore"){
+            console.log(table.csvPreset)
+            var extension = path.extname(table.csvPreset)
+            var data = fs.readFileSync(path.join(userDir, "/node_modules/", plugin.id, "/seandepagnier/", table.csvPreset), 'utf8', function (err, data) {
+              if (err) {
+                console.log(err);
+                process.exit(1);
+              }
+            })
+            var csvStrBack
+            if (extension = '.txt'){
+              csvStrBack = data.split('\n').slice(1).join('\n')
+            }
+            else {
+              csvStrBack = data
+            }
 
-          parse(table.csvTable, {
+            console.log(csvStrBack)
+            var csvStr = csvStrBack.replace(/\\/g, '/')
+            console.log(csvStr)
+            if (extension == '.csv'){
+              csvTable = csvStr.trim().replace(/\°/g, '')
+            }
+            else {
+              csvTable = csvStr.trim().replace(/(\t+|\t| |\t\t|  )(?!\n| \n|$)/g, ";")
+            }
+            app.debug(csvTable)
+
+            options.entered[counter].csvTable = csvTable
+            app.savePluginOptions(options, function(err, result) {
+              if (err) {
+                console.log(err)
+              }
+            })
+
+          }
+          else {
+            csvTable = table.csvTable
+          }
+          delimiter = ";"
+          lineBreak = '\n'
+
+
+          parse(csvTable, {
             trim: true,
             skip_empty_lines: true,
-            delimiter: ";"
+            delimiter: delimiter,
+            record_delimiter: lineBreak
           }).on("readable", function() {
             let record
             while ((record = this.read())) {
               output.push(record)
             }
-            //app.debug(JSON.stringify(output))
+            app.debug(JSON.stringify(output))
             var windSpeeds = []
             output[0].forEach(listSpeeds)
             function listSpeeds(item, index) {
               if (index > 0) {
                 //first is "twa/tws"
-                //var windSpeedItem = item//@TODO: remove and replace with below
                 var windSpeedItem = utilSK.transform(item,table.windSpeedUnit,"ms")
                 windSpeeds.push(Number(windSpeedItem))
               }
@@ -863,6 +929,7 @@ module.exports = function(app, options) {
               }
             }
           })
+          counter += 1
         })
       }
       const getMainPolar = async () => {
@@ -956,6 +1023,7 @@ module.exports = function(app, options) {
     },
     stop: function() {
       app.debug("Stopping")
+      var csvList = ["ignore"]
       unsubscribes.forEach(f => f())
       items.length = items.length - 1
       engineSKPath = ""
