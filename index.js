@@ -23,7 +23,6 @@ const uuidv4 = require("uuid/v4")
 const parse = require("csv-parse")
 const fs = require("fs")
 const path = require("path")
-const csv=require('csvtojson')
 
 var db, json
 var pushInterval
