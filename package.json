@@ -2,7 +2,7 @@
   "dependencies": {
     "@signalk/nmea0183-utilities": "^0.6.0",
     "baconjs": "^2.0.0",
-    "better-sqlite3": "^5.4.0",
+    "better-sqlite3": "^6.0.0",
     "csv": "^5.1.1",
     "express": "^4.16.3",
     "highcharts": "^7.1.2",
