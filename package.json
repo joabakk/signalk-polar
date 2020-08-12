@@ -49,6 +49,6 @@
     "snyk-protect": "snyk protect",
     "prepublish": "npm run snyk-protect"
   },
-  "version": "2.1.1",
+  "version": "2.1.2",
   "snyk": true
 }
