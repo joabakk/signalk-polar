@@ -7,7 +7,8 @@
     "express": "^4.16.3",
     "highcharts": "^7.1.2",
     "lodash": "^4.17.11",
-    "uuid": "^3.3.2"
+    "uuid": "^3.3.2",
+    "snyk": "^1.316.1"
   },
   "description": "Signal K server plugin to store and retrieve polar data with sqlite3 db",
   "devDependencies": {
@@ -44,7 +45,10 @@
     "test": "mocha",
     "build": "browserify graphing.js -o public/bundle.js",
     "watch": "watchify graphing.js -o public/bundle.js",
-    "updatepolars": "svn export --force https://github.com/seandepagnier/weather_routing_pi/trunk/data/polars ./seandepagnier"
+    "updatepolars": "svn export --force https://github.com/seandepagnier/weather_routing_pi/trunk/data/polars ./seandepagnier",
+    "snyk-protect": "snyk protect",
+    "prepublish": "npm run snyk-protect"
   },
-  "version": "2.1.1"
+  "version": "2.1.1",
+  "snyk": true
 }
