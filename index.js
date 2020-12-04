@@ -47,7 +47,6 @@ var polarDescription
 var twaInterval, windSpeedIndex, windAngleIndex
 var twsInterval
 var maxWind
-var dbFile
 var allPolars, polarList
 var polarArray = []
 var stmt
@@ -71,13 +70,6 @@ module.exports = function(app, options) {
   var userDir = app.config.configPath
   var plugin = {}
   plugin.id = "signalk-polar"
-
-  var csvFolder = path.join(userDir, '/node_modules/', plugin.id, '/seandepagnier')
-  fs.readdirSync(csvFolder).forEach(file => {
-    if (file != 'Example'){
-      csvList.push(file)
-    }
-  })
 
   var unsubscribes = []
   var shouldStore = function(path) {
@@ -509,9 +501,9 @@ module.exports = function(app, options) {
                 }
                 //app.debug("engine running? " + engineRunning)
                 if (Math.abs(rot * 3437) < rateOfTurnLimit) {
-                  stableCourse = true
-                } else {
                   stableCourse = false
+                } else {
+                  stableCourse = true //also if no Rate of Turn available
                 }
                 //app.debug("stable course? " + stableCourse +" "+ Math.abs(rot*3437) + " deg/min compared to " + rateOfTurnLimit)
 
@@ -637,8 +629,8 @@ module.exports = function(app, options) {
         },
         sqliteFile: {
           type: "string",
-          title: "File for storing sqlite3 data, relative path to server",
-          default: "./polarDatabase.db"
+          title: "File for storing sqlite3 data, ",
+          default: "polarDatabase.db"
         },
         polarName: {
           type: "string",
@@ -672,7 +664,7 @@ module.exports = function(app, options) {
         rateOfTurnLimit: {
           type: "number",
           title:
-          "Store in database if rate of turn is less than [ ] deg/min (inertia gives false reading while turning vessel)",
+          "Store in database if rate of turn is unavailable or less than [ ] deg/min (inertia gives false reading while turning vessel)",
           default: 5
         },
         entered: {
@@ -740,8 +732,17 @@ module.exports = function(app, options) {
     },
     start: function(options) {
 
+      var csvFolder = path.join(app.getDataDirPath(), '/seandepagnier')
+      if (!fs.existsSync(csvFolder)) {
+        fs.mkdirSync(csvFolder)
+      }
+      fs.readdirSync(csvFolder).forEach(file => {
+        if (file != 'Example'){
+          csvList.push(file)
+        }
+      })
+
       //app.debug(csvList)
-      dbFile = options.sqliteFile
       twaInterval = options.angleResolution * Math.PI / 180
       twsInterval = options.twsInterval
       secondsSincePush = 10
@@ -761,7 +762,8 @@ module.exports = function(app, options) {
           }
         })
       }
-      db = new Database(options.sqliteFile, { timeout: 10000 })
+      const dbFile = path.join(app.getDataDirPath(), options.sqliteFile)
+      db = new Database(dbFile, { timeout: 10000 })
       polarName = options.polarName.replace(/ /gi, "_")
       app.debug("polar name is " + polarName)
       var create
@@ -839,7 +841,7 @@ module.exports = function(app, options) {
             console.log(table.csvPreset)
             var extension = path.extname(table.csvPreset)
             //app.debug("extension: " + extension)
-            var data = fs.readFileSync(path.join(userDir, "/node_modules/", plugin.id, "/seandepagnier/", table.csvPreset), 'utf8', function (err, data) {
+            var data = fs.readFileSync(path.join(app.getDataDirPath(),  "/seandepagnier/", table.csvPreset), 'utf8', function (err, data) {
               if (err) {
                 console.log(err);
                 process.exit(1);
@@ -908,7 +910,6 @@ module.exports = function(app, options) {
                 //app.debug("itemAngle: " +itemAngle)
                 item.forEach(storeSpeed)
                 function storeSpeed(speedItem, index) {
-                  //var speed = Number(speedItem)//@TODO: replace with below
                   var speed = utilSK.transform(speedItem,table.boatSpeedUnit,  "ms"  )
                   if (index > 0 && speedItem > 0) {
                     //first item is angle, already parsed
