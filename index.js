@@ -732,7 +732,7 @@ module.exports = function(app, options) {
     },
     start: function(options) {
 
-      var csvFolder = path.join(app.getDataDirPath(), '/seandepagnier')
+      var csvFolder = path.join(userDir, '/node_modules/', plugin.id, '/seandepagnier')
       if (!fs.existsSync(csvFolder)) {
         fs.mkdirSync(csvFolder)
       }
@@ -841,7 +841,7 @@ module.exports = function(app, options) {
             console.log(table.csvPreset)
             var extension = path.extname(table.csvPreset)
             //app.debug("extension: " + extension)
-            var data = fs.readFileSync(path.join(app.getDataDirPath(),  "/seandepagnier/", table.csvPreset), 'utf8', function (err, data) {
+            var data = fs.readFileSync(path.join(userDir, '/node_modules/', plugin.id, '/seandepagnier/', table.csvPreset), 'utf8', function (err, data) {
               if (err) {
                 console.log(err);
                 process.exit(1);
@@ -1033,7 +1033,7 @@ module.exports = function(app, options) {
         var uuid = req.query.uuid
         app.debug("requested to delete " + uuid)
         deletePolarTable(uuid)
-        res.redirect("./listPolarTables")
+        res.redirect('back')
       })
 
     },

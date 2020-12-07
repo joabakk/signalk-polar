@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<title> - Danger Zone - Delete polar databases - </title>
+<script type='text/javascript' src='/jquery/dist/jquery.min.js'></script>
+<link rel="stylesheet" type="text/css" href="/bootstrap/dist/css/bootstrap.min.css"> <style type='text/css'> </style>
+<body bgcolor="black">
+<head>
+  Delete only works if the table is also removed from the config page (or it will reappear on restart)
+</head>
+<body>
+  <script>
+
+      $(function() {
+
+
+     var people = [];
+
+     $.getJSON('/plugins/signalk-polar/listPolarTables', function(data) {
+         $.each(data, function(i, f) {
+            var tblRow = "<tr>" + "<td>" + f.uuid + "</td>" +
+             "<td>" + f.name + "</td>" + "<td>" + f.description + "</td>" + "<td>" + "<a href='/plugins/signalk-polar/deletePolarTable?uuid="+f.uuid+"'>DELETE</a>" + "</td>" + "</tr>"
+             $(tblRow).appendTo("#userdata tbody");
+       });
+
+     });
+
+  });
+  </script>
+  <div class="wrapper">
+  <div class="profile">
+     <table id= "userdata" border="2">
+    <thead>
+              <th>UUID</th>
+              <th>Name</th>
+              <th>Description</th>
+              <th>Delete</th>
+          </thead>
+        <tbody>
+
+         </tbody>
+     </table>
+
+  </div>
+  </div>
+
+  <script type="text/javascript">
+
+  </script>
+  <!-- <button id="night">Night Mode</button> -->
+  <br>
+  <br>
+  <a href="index.html">Back to main polar graph</a>
+</body>
+
+
+</html>
