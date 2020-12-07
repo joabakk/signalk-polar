@@ -45,7 +45,7 @@
     "test": "mocha",
     "build": "browserify graphing.js -o public/bundle.js",
     "watch": "watchify graphing.js -o public/bundle.js",
-    "updatepolars": "svn export --force https://github.com/seandepagnier/weather_routing_pi/tree/master/data/polars ./seandepagnier",
+    "updatepolars": "svn export --force https://github.com/seandepagnier/weather_routing_pi/trunk/data/polars ./seandepagnier",
     "snyk-protect": "snyk protect",
     "prepublish": "npm run snyk-protect"
   },
