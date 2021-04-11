@@ -1257,7 +1257,6 @@ function pushDelta(app, command_json) {
           label: "calculated",
           talker: "signalk-polar"
         },
-        timestamp: utilSK.timestamp(),
         values: [
           {
             path: key,
