@@ -221,7 +221,7 @@ module.exports = function(app, options) {
       var windSpeedArray
       if (uuid == mainPolarUuid) {
         windSpeedArray = []
-        for (var windspeed = twsInterval;windspeed < maxWind;windspeed += twsInterval) {
+        for (var windspeed = twsInterval;windspeed < maxWind+twsInterval;windspeed += twsInterval) {
           windSpeedArray.push(windspeed)
         }
       } else {
@@ -1257,7 +1257,6 @@ function pushDelta(app, command_json) {
           label: "calculated",
           talker: "signalk-polar"
         },
-        timestamp: utilSK.timestamp(),
         values: [
           {
             path: key,
