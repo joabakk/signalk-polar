@@ -528,17 +528,41 @@ module.exports = function(app, options) {
                   //app.debug(secondsSincePush, timeMax)
                   if (secondsSincePush < timeMax - 1) {
                     //app.debug("time to push")
-                    pushDelta(app, {
-                      key: "environment.wind.speedTrue",
-                      value: tws
+                    app.handleMessage(plugin.id, {
+                      updates: [
+                        {
+                          values: [
+                            {
+                              path: "environment.wind.speedTrue",
+                              value: tws
+                            }
+                          ]
+                        }
+                      ]
                     })
-                    pushDelta(app, {
-                      key: "environment.wind.angleTrueWater",
-                      value: twa
+                    app.handleMessage(plugin.id, {
+                      updates: [
+                        {
+                          values: [
+                            {
+                              path: "environment.wind.angleTrueWater",
+                              value: twa
+                            }
+                          ]
+                        }
+                      ]
                     })
-                    pushDelta(app, {
-                      key: "performance.velocityMadeGood",
-                      value: vmg
+                    app.handleMessage(plugin.id, {
+                      updates: [
+                        {
+                          values: [
+                            {
+                              path: "performance.velocityMadeGood",
+                              value: vmg
+                            }
+                          ]
+                        }
+                      ]
                     })
                     secondsSincePush = timeMax
                   }
@@ -1126,57 +1150,154 @@ module.exports = function(app, options) {
           }
         }
         var beatangle = perfData.beatAngles[perfIndex]
-        pushDelta(app, {
-          key: "performance.beatAngle",
-          value: beatangle
+
+        app.handleMessage(plugin.id, {
+          updates: [
+            {
+              values: [
+                {
+                  path: "performance.beatAngle",
+                  value: beatangle
+                }
+              ]
+            }
+          ]
         })
-        pushDelta(app, {
-          key: "performance.beatAngleTargetSpeed",
-          value: perfData.beatSpeeds[perfIndex]
+        app.handleMessage(plugin.id, {
+          updates: [
+            {
+              values: [
+                {
+                  path: "performance.beatAngleTargetSpeed",
+                  value: perfData.beatSpeeds[perfIndex]
+                }
+              ]
+            }
+          ]
         })
-        pushDelta(app, {
-          key: "performance.beatAngleVelocityMadeGood",
-          value: Math.max(actualVmg, storedVmg)
+        app.handleMessage(plugin.id, {
+          updates: [
+            {
+              values: [
+                {
+                  path: "performance.beatAngleVelocityMadeGood",
+                  value: Math.max(actualVmg, storedVmg)
+                }
+              ]
+            }
+          ]
         })
         if (Math.abs(trueWindAngle) < Math.PI / 2) {
-          pushDelta(app, {
-            key: "performance.targetAngle",
-            value: perfData.beatAngles[perfIndex]
+          app.handleMessage(plugin.id, {
+            updates: [
+              {
+                values: [
+                  {
+                    path: "performance.targetAngle",
+                    value: perfData.beatAngles[perfIndex]
+                  }
+                ]
+              }
+            ]
           })
-          pushDelta(app, {
-            key: "performance.targetSpeed",
-            value: perfData.beatSpeeds[perfIndex]
+          app.handleMessage(plugin.id, {
+            updates: [
+              {
+                values: [
+                  {
+                    path: "performance.targetSpeed",
+                    value: perfData.beatSpeeds[perfIndex]
+                  }
+                ]
+              }
+            ]
           })
         }
-        pushDelta(app, {
-          key: "performance.gybeAngle",
-          value: perfData.gybeAngles[perfIndex]
+        app.handleMessage(plugin.id, {
+          updates: [
+            {
+              values: [
+                {
+                  path: "performance.gybeAngle",
+                  value: perfData.gybeAngles[perfIndex]
+                }
+              ]
+            }
+          ]
         })
-        pushDelta(app, {
-          key: "performance.gybeAngleTargetSpeed",
-          value: perfData.gybeSpeeds[perfIndex]
+        app.handleMessage(plugin.id, {
+          updates: [
+            {
+              values: [
+                {
+                  path: "performance.gybeAngleTargetSpeed",
+                  value: perfData.gybeSpeeds[perfIndex]
+                }
+              ]
+            }
+          ]
         })
-        pushDelta(app, {
-          key: "performance.gybeAngleVelocityMadeGood",
-          value: Math.min(actualVmg, storedVmg)
+        app.handleMessage(plugin.id, {
+          updates: [
+            {
+              values: [
+                {
+                  path: "performance.gybeAngleVelocityMadeGood",
+                  value: Math.min(actualVmg, storedVmg)
+                }
+              ]
+            }
+          ]
         })
         if (Math.abs(trueWindAngle) > Math.PI / 2) {
-          pushDelta(app, {
-            key: "performance.targetAngle",
-            value: perfData.gybeAngles[perfIndex]
+          app.handleMessage(plugin.id, {
+            updates: [
+              {
+                values: [
+                  {
+                    path: "performance.targetAngle",
+                    value: perfData.gybeAngles[perfIndex]
+                  }
+                ]
+              }
+            ]
           })
-          pushDelta(app, {
-            key: "performance.targetSpeed",
-            value: perfData.gybeSpeeds[perfIndex]
+          app.handleMessage(plugin.id, {
+            updates: [
+              {
+                values: [
+                  {
+                    path: "performance.targetSpeed",
+                    value: perfData.gybeSpeeds[perfIndex]
+                  }
+                ]
+              }
+            ]
           })
         }
-        pushDelta(app, {
-          key: "performance.polarSpeed",
-          value: perfData.polarSpeeds[windAngleIndex]
+        app.handleMessage(plugin.id, {
+          updates: [
+            {
+              values: [
+                {
+                  path: "performance.polarSpeed",
+                  value: perfData.polarSpeeds[windAngleIndex]
+                }
+              ]
+            }
+          ]
         })
-        pushDelta(app, {
-          key: "performance.polarSpeedRatio",
-          value: speedThroughWater / perfData.polarSpeeds[windAngleIndex]
+        app.handleMessage(plugin.id, {
+          updates: [
+            {
+              values: [
+                {
+                  path: "performance.polarSpeedRatio",
+                  value: speedThroughWater / perfData.polarSpeeds[windAngleIndex]
+                }
+              ]
+            }
+          ]
         })
       }
       else {
@@ -1243,7 +1364,7 @@ function getVelocityMadeGood(stw, twa) {
   return Math.cos(twa) * stw
 }
 
-function pushDelta(app, command_json) {
+function pushDelta(app, command_json) { //Obsolete, consider using function for app.handleMessage
   //app.debug("delta to push: " + JSON.stringify(command_json))
   var key = command_json["key"]
   var value = command_json["value"]
