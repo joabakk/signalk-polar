@@ -48,11 +48,11 @@ var twaInterval, windSpeedIndex, windAngleIndex
 var twsInterval
 var maxWind
 var allPolars, polarList
-var polarArray = []
+var polarArray = [] //@TODO change to object all over
 var stmt
 var csvList = ["ignore"]
 
-const items = [
+const keyPaths = [
   "performance.velocityMadeGood", // if empty, populate from this plugin
   "navigation.rateOfTurn", // if above threshold, vessel is turning and no data is stored
   "navigation.speedThroughWater",
@@ -61,7 +61,7 @@ const items = [
   "navigation.courseOverGroundTrue",
   "navigation.speedOverGround"
 ]
-const maxInterval = 2 //max interval in seconds between updates for all items to avoid updating on stale data
+const maxInterval = 2 //max interval in seconds between updates for all keyPaths to avoid updating on stale data
 
 var plugin = {}
 plugin.id = "signalk-polar"
@@ -993,9 +993,9 @@ module.exports = function(app, options) {
         engineSKPath = "doNotStore"
       }
       rateOfTurnLimit = options.rateOfTurnLimit
-      //app.debug("listening for " + util.inspect(items))
+      //app.debug("listening for " + util.inspect(keyPaths))
       //app.debug("engineSKPath: " + engineSKPath)
-      items.forEach(element => {
+      keyPaths.forEach(element => {
         obj[element] = true
       })
 
