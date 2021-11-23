@@ -63,6 +63,10 @@ const items = [
 ]
 const maxInterval = 2 //max interval in seconds between updates for all items to avoid updating on stale data
 
+var plugin = {}
+plugin.id = "signalk-polar"
+
+
 module.exports = function(app, options) {
   "use strict"
   var client
@@ -400,12 +404,15 @@ module.exports = function(app, options) {
   function handleDelta(delta, options) {
     if (delta.updates && delta.context === selfContext) {
       delta.updates.forEach(update => {
+        //app.debug('update: ' + util.inspect(update))
+
         if (
           update.values &&
-          typeof update.source != "undefined" &&
-          update.source.talker != "signalk-polar"
+          typeof update.$source != "undefined" &&
+          update.$source != "signalk-polar"
         ) {
           var points = update.values.reduce((acc, pathValue, options) => {
+            app.debug('found ' + pathValue.path)
             if (typeof pathValue.value === "number" && engineSKPath != "doNotStore") {
               //propulsion.*.state is not number!
               var storeIt = shouldStore(pathValue.path)
@@ -528,9 +535,9 @@ module.exports = function(app, options) {
                   //app.debug(secondsSincePush, timeMax)
                   if (secondsSincePush < timeMax - 1) {
                     //app.debug("time to push")
-                    app.pushDelta(app, "environment.wind.speedTrue", tws)
-                    app.pushDelta(app, "environment.wind.angleTrueWater", twa)
-                    app.pushDelta(app, "performance.velocityMadeGood", vmg)
+                    pushDelta(app, "environment.wind.speedTrue", tws)
+                    pushDelta(app, "environment.wind.angleTrueWater", twa)
+                    pushDelta(app, "performance.velocityMadeGood", vmg)
                     secondsSincePush = timeMax
                   }
                   //tack is implicit in wind angle, no need to check (or store)
@@ -564,6 +571,8 @@ module.exports = function(app, options) {
                     storeRecord = false
                   }
                 }
+              } else {
+                app.debug('storeit false for ' + pathValue.path)
               }
             }
             return acc
@@ -722,7 +731,7 @@ module.exports = function(app, options) {
       }
     },
     start: function(options) {
-
+      app.debug('started plugin')
       var csvFolder = path.join(userDir, '/node_modules/', plugin.id, '/seandepagnier')
       if (!fs.existsSync(csvFolder)) {
         fs.mkdirSync(csvFolder)
@@ -1117,24 +1126,24 @@ module.exports = function(app, options) {
           }
         }
         var beatangle = perfData.beatAngles[perfIndex]
-        app.pushDelta(app, "performance.beatAngle", beatangle)
-        app.pushDelta(app, "performance.beatAngleTargetSpeed", perfData.beatSpeeds[perfIndex])
-        app.pushDelta(app, "performance.beatAngleVelocityMadeGood", Math.max(actualVmg, storedVmg))
+        pushDelta(app, "performance.beatAngle", beatangle)
+        pushDelta(app, "performance.beatAngleTargetSpeed", perfData.beatSpeeds[perfIndex])
+        pushDelta(app, "performance.beatAngleVelocityMadeGood", Math.max(actualVmg, storedVmg))
 
         if (Math.abs(trueWindAngle) < Math.PI / 2) {
-          app.pushDelta(app, "performance.targetAngle", perfData.beatAngles[perfIndex])
-          app.pushDelta(app, "performance.targetSpeed", perfData.beatSpeeds[perfIndex])
+          pushDelta(app, "performance.targetAngle", perfData.beatAngles[perfIndex])
+          pushDelta(app, "performance.targetSpeed", perfData.beatSpeeds[perfIndex])
         }
-        app.pushDelta(app, "performance.gybeAngle", perfData.gybeAngles[perfIndex])
-        app.pushDelta(app, "performance.gybeAngleTargetSpeed", perfData.gybeSpeeds[perfIndex])
-        app.pushDelta(app, "performance.gybeAngleVelocityMadeGood", Math.min(actualVmg, storedVmg))
+        pushDelta(app, "performance.gybeAngle", perfData.gybeAngles[perfIndex])
+        pushDelta(app, "performance.gybeAngleTargetSpeed", perfData.gybeSpeeds[perfIndex])
+        pushDelta(app, "performance.gybeAngleVelocityMadeGood", Math.min(actualVmg, storedVmg))
 
         if (Math.abs(trueWindAngle) > Math.PI / 2) {
-          app.pushDelta(app, "performance.targetAngle", perfData.gybeAngles[perfIndex])
-          app.pushDelta(app, "performance.targetSpeed", perfData.gybeSpeeds[perfIndex])
+          pushDelta(app, "performance.targetAngle", perfData.gybeAngles[perfIndex])
+          pushDelta(app, "performance.targetSpeed", perfData.gybeSpeeds[perfIndex])
         }
-        app.pushDelta(app, "performance.polarSpeed", perfData.polarSpeeds[windAngleIndex])
-        app.pushDelta(app, "performance.polarSpeedRatio", speedThroughWater / perfData.polarSpeeds[windAngleIndex])
+        pushDelta(app, "performance.polarSpeed", perfData.polarSpeeds[windAngleIndex])
+        pushDelta(app, "performance.polarSpeedRatio", speedThroughWater / perfData.polarSpeeds[windAngleIndex])
       }
       else {
         return
