@@ -41,14 +41,15 @@ var lastStored = 1
 var storeRecord
 var secondsSincePush = 100
 var mainPolarUuid
-var mainPolarIndex, mainPolarData
+var mainwindData
 var polarName
 var polarDescription
 var twaInterval, windSpeedIndex, windAngleIndex
 var twsInterval
 var maxWind
 var allPolars, polarList
-var polarArray = [] //@TODO change to object all over
+var polarArray = []
+var polarObject = {} //move polarArray over here
 var stmt
 var csvList = ["ignore"]
 
@@ -113,7 +114,6 @@ module.exports = function(app, options) {
         var query = `SELECT * FROM 'tableUuids' WHERE uuid = ?`
         const queryLine = db.prepare(query)
         const table = queryLine.get(uuid)
-        mainPolarIndex = polarArray.indexOf(mainPolarUuid)
         resolve(table)
       })
     }
@@ -123,12 +123,13 @@ module.exports = function(app, options) {
       description = info.description
       response = {
         [uuid]: {
+          id: uuid,
           name: tableName,
           $description: description,
           source: {
             label: plugin.id
           },
-          polarData: []
+          windData: []
         }
       }
       //app.debug(JSON.stringify(response))
@@ -219,7 +220,7 @@ module.exports = function(app, options) {
       return p
     }
 
-    var polarData
+    var windData
     const speedLoop = async uuid => {
       response = await getInfo(uuid)
       var windSpeedArray
@@ -237,18 +238,16 @@ module.exports = function(app, options) {
         let wsp = element
         var wspLow
         index >= 1 ? (wspLow = array[index - 1]) : (wspLow = 0)
-        polarData = []
+        windData = []
 
         const angleLoop = async wsp => {
           let anglePromises = []
           var data = await getPerf(uuid, wsp, wspLow).then(values => {
             var data = {
               trueWindSpeed: wsp,
-              beatAngles: [],
-              beatSpeeds: [],
-              gybeAngles: [],
-              gybeSpeeds: [],
-              trueWindAngles: [],
+              optimalBeats: [],
+              optimalGybes: [],
+              angleData: [],
               polarSpeeds: [],
               velocitiesMadeGood: []
             }
@@ -260,8 +259,7 @@ module.exports = function(app, options) {
               values[0] != "undefined"
             ) {
               var value = JSON.parse(JSON.stringify(values[0]))
-              data.beatAngles.push(value.environmentWindAngleTrueGround)
-              data.beatSpeeds.push(value.navigationSpeedThroughWater)
+              data.optimalBeats.push([value.environmentWindAngleTrueGround,value.navigationSpeedThroughWater])
             }
             if (
               values[1] !== null &&
@@ -270,8 +268,7 @@ module.exports = function(app, options) {
               values[1] != "undefined"
             ) {
               var value = JSON.parse(JSON.stringify(values[1]))
-              data.beatAngles.push(value.environmentWindAngleTrueGround)
-              data.beatSpeeds.push(value.navigationSpeedThroughWater)
+              data.optimalBeats.push([value.environmentWindAngleTrueGround,value.navigationSpeedThroughWater])
             }
             if (
               values[2] !== null &&
@@ -280,8 +277,7 @@ module.exports = function(app, options) {
               values[2] != "undefined"
             ) {
               var value = JSON.parse(JSON.stringify(values[2]))
-              data.gybeAngles.push(value.environmentWindAngleTrueGround)
-              data.gybeSpeeds.push(value.navigationSpeedThroughWater)
+              data.optimalGybes.push([value.environmentWindAngleTrueGround,value.navigationSpeedThroughWater])
             }
             if (
               values[3] !== null &&
@@ -290,8 +286,7 @@ module.exports = function(app, options) {
               values[3] != "undefined"
             ) {
               var value = JSON.parse(JSON.stringify(values[3]))
-              data.gybeAngles.push(value.environmentWindAngleTrueGround)
-              data.gybeSpeeds.push(value.navigationSpeedThroughWater)
+              data.optimalGybes.push([value.environmentWindAngleTrueGround,value.navigationSpeedThroughWater])
             }
             //app.debug("getPerfAsync: ", JSON.stringify(data))
             return data
@@ -309,7 +304,7 @@ module.exports = function(app, options) {
           }
 
           windAngleArray.forEach(function(angle, index, array) {
-            data.trueWindAngles.push(angle)
+            data.angleData.push([angle])
             var angleHigh = angle + twaInterval * 0.5
             var angleLow = angle - twaInterval * 0.5
             //wspLow = wsp - twsInterval
@@ -338,18 +333,17 @@ module.exports = function(app, options) {
           function angleFunction(result, index) {
             if (result != undefined) {
               result.speed
-              ? data.polarSpeeds.push(result.speed)
-              : data.polarSpeeds.push(null)
+              ? data.angleData[index].push(result.speed)
+              :  data.angleData[index].push(null)
               result.vmg
-              ? data.velocitiesMadeGood.push(result.vmg)
-              : data.velocitiesMadeGood.push(null)
+              ?  data.angleData[index].push(result.vmg)
+              :  data.angleData[index].push(null)
             } else {
-              data.polarSpeeds.push(null)
-              data.velocitiesMadeGood.push(null)
+               data.angleData[index].push(null,null)
             }
           }
-          polarData = data
-          return polarData
+          windData = data
+          return windData
         }
         windPromises.push(angleLoop(wsp))
       })
@@ -357,19 +351,19 @@ module.exports = function(app, options) {
       const windResults = await Promise.all(windPromises)
       //app.debug("windPromises: " + JSON.stringify(windResults))
       windResults.forEach(windFunction)
-      function windFunction(polarData, index) {
+      function windFunction(windData, index) {
         //app.debug(JSON.stringify(response))
-        response[uuid].polarData.push(polarData)
+        response[uuid].windData.push(windData)
       }
       function countNonEmpty(array) {
         return array.filter(Boolean).length
       }
       function trimPolar() {
         var trimmedPolar = []
-        response[uuid].polarData.forEach(data => {
+        response[uuid].windData.forEach(data => {
           var arraysToCheck = [
-            data.beatAngles,
-            data.gybeAngles,
+            data.optimalBeats,
+            data.optimalGybes,
             data.beatSpeeds,
             data.gybeSpeeds,
             data.polarSpeeds,
@@ -391,7 +385,7 @@ module.exports = function(app, options) {
       if (false) {
         //Not implemented, would mess with dynamic comparisons
         var trimmedPolar = trimPolar()
-        response[uuid].polarData = trimmedPolar
+        response[uuid].windData = trimmedPolar
       }
       return response
     }
@@ -412,7 +406,7 @@ module.exports = function(app, options) {
           update.$source != "signalk-polar"
         ) {
           var points = update.values.reduce((acc, pathValue, options) => {
-            app.debug('found ' + pathValue.path)
+            //app.debug('found ' + pathValue.path)
             if (typeof pathValue.value === "number" && engineSKPath != "doNotStore") {
               //propulsion.*.state is not number!
               var storeIt = shouldStore(pathValue.path)
@@ -545,7 +539,7 @@ module.exports = function(app, options) {
                   //app.debug(windSpeedIndex + " as index for tws: " + tws)
                   windAngleIndex = Math.round((Math.PI + twa) / twaInterval)
                   //app.debug(windAngleIndex + " as index for twa: " + twa)
-                  var storedSpeed = mainPolarData[windSpeedIndex].polarSpeeds[windAngleIndex]
+                  var storedSpeed = mainwindData[windSpeedIndex].polarSpeeds[windAngleIndex]
                   app.debug(typeof(storedSpeed), storedSpeed + " as stored speed")
                   if (storedSpeed === null) {
                     app.debug("nothing stored, should store")
@@ -566,8 +560,8 @@ module.exports = function(app, options) {
                     )
                     var info = stmt.run()
                     app.debug(info.changes + " changes to db")
-                    mainPolarData[windSpeedIndex].polarSpeeds[windAngleIndex] = stw
-                    mainPolarData[windSpeedIndex].velocitiesMadeGood[windAngleIndex] = vmg
+                    mainwindData[windSpeedIndex].polarSpeeds[windAngleIndex] = stw
+                    mainwindData[windSpeedIndex].velocitiesMadeGood[windAngleIndex] = vmg
                     storeRecord = false
                   }
                 }
@@ -630,7 +624,7 @@ module.exports = function(app, options) {
         sqliteFile: {
           type: "string",
           title: "File for storing sqlite3 data, ",
-          default: "polarDatabase.db"
+          default: "windDatabase.db"
         },
         polarName: {
           type: "string",
@@ -901,7 +895,7 @@ module.exports = function(app, options) {
                 windSpeeds.push(Number(windSpeedItem))
               }
             }
-            app.debug("windspeeds: " + JSON.stringify(windSpeeds))
+            //app.debug("windspeeds: " + JSON.stringify(windSpeeds))
             output.forEach(storeSpeeds)
             function storeSpeeds(item, index) {
               if (index > 0) {
@@ -941,13 +935,13 @@ module.exports = function(app, options) {
       }
 
       const getMainPolar = async () => {
-        var mainpolardata = await getPolarTable(mainPolarUuid)
-        return mainpolardata
+        var mainwindData = await getPolarTable(mainPolarUuid)
+        return mainwindData
       }
       async function mainPolarFunc() {
         const response = await getMainPolar()
-        //app.debug(Object.values(response)[0].polarData)
-        mainPolarData = Object.values(response)[0].polarData
+        //app.debug(Object.values(response)[0].windData)
+        mainwindData = Object.values(response)[0].windData
       }
       mainPolarFunc()
 
@@ -955,14 +949,19 @@ module.exports = function(app, options) {
         polarList = await listPolarTables()
         const results = await Promise.all(
           polarList.map(item => {
-            polarArray.push(item.uuid)
+            //polarObject[item.uuid] = {}
+            polarArray.push(item.uuid)//@TODO can this be removed?
             return getPolarTable(item.uuid)
           })
         )
+        results.forEach((table, index) => polarObject[Object.keys(table)[0]] = Object.values(table)[0])
+        app.debug("results: " + util.inspect(results[0]),results[1])
+        var object = polarObject
+        app.debug("object: " + util.inspect(object))
         var polars = {
-          polars: results
+          polars: object
         }
-        return results
+        return object //@TODO return object eventually
       }
       async function allPolarFunc() {
         const response = await getAllPolars()
@@ -1065,20 +1064,20 @@ module.exports = function(app, options) {
     ) {
       var windSpeedIndex = Math.ceil(trueWindSpeed / twsInterval) - 1
       var windAngleIndex = Math.round((Math.PI + trueWindAngle) / twaInterval)
-      var perfData = mainPolarData[windSpeedIndex]
+      var perfData = mainwindData[windSpeedIndex]
       var perfIndex
-      if (perfData && perfData.beatAngles){
+      if (perfData && perfData.optimalBeats){
 
-        if (perfData.beatAngles.length == 0) {
-          perfData.beatAngles.push(trueWindAngle)
+        if (perfData.optimalBeats.length == 0) {
+          perfData.optimalBeats.push(trueWindAngle)
           perfData.beatSpeeds.push(speedThroughWater)
           perfIndex = 0
-        } else if (perfData.beatAngles.length == 1) {
+        } else if (perfData.optimalBeats.length == 1) {
           if (
-            perfData.beatAngles[0] &&
-            Math.sign(trueWindAngle) != Math.sign(perfData.beatAngles[0])
+            perfData.optimalBeats[0] &&
+            Math.sign(trueWindAngle) != Math.sign(perfData.optimalBeats[0])
           ) {
-            perfData.beatAngles.push(trueWindAngle)
+            perfData.optimalBeats.push(trueWindAngle)
             perfData.beatSpeeds.push(speedThroughWater)
             perfIndex = 1
           } else {
@@ -1086,8 +1085,8 @@ module.exports = function(app, options) {
           }
         } else {
           if (
-            perfData.beatAngles[0] &&
-            Math.sign(trueWindAngle) != Math.sign(perfData.beatAngles[0])
+            perfData.optimalBeats[0] &&
+            Math.sign(trueWindAngle) != Math.sign(perfData.optimalBeats[0])
           ) {
             perfIndex = 1
           } else {
@@ -1095,51 +1094,51 @@ module.exports = function(app, options) {
           }
           var storedVmg = getVelocityMadeGood(
             perfData.beatSpeeds[perfIndex],
-            perfData.beatAngles[perfIndex]
+            perfData.optimalBeats[perfIndex]
           )
           var actualVmg = getVelocityMadeGood(trueWindAngle, speedThroughWater)
           if (actualVmg > storedVmg) {
-            perfData.beatAngles[perfIndex] = trueWindAngle
+            perfData.optimalBeats[perfIndex] = trueWindAngle
             perfData.beatSpeeds[perfIndex] = speedThroughWater
           }
         }
-        if (perfData.gybeAngles.length == 0) {
-          perfData.gybeAngles.push(trueWindAngle)
+        if (perfData.optimalGybes.length == 0) {
+          perfData.optimalGybes.push(trueWindAngle)
           perfData.gybeSpeeds.push(speedThroughWater)
-        } else if (perfData.gybeAngles.length == 1) {
-          if (Math.sign(trueWindAngle) != Math.sign(perfData.gybeAngles[0])) {
-            perfData.gybeAngles.push(trueWindAngle)
+        } else if (perfData.optimalGybes.length == 1) {
+          if (Math.sign(trueWindAngle) != Math.sign(perfData.optimalGybes[0])) {
+            perfData.optimalGybes.push(trueWindAngle)
             perfData.gybeSpeeds.push(speedThroughWater)
           }
         } else {
-          Math.sign(trueWindAngle) != Math.sign(perfData.gybeAngles[0])
+          Math.sign(trueWindAngle) != Math.sign(perfData.optimalGybes[0])
           ? (perfIndex = 1)
           : (perfIndex = 0)
           var storedVmg = getVelocityMadeGood(
             perfData.gybeSpeeds[perfIndex],
-            perfData.gybeAngles[perfIndex]
+            perfData.optimalGybes[perfIndex]
           )
           var actualVmg = getVelocityMadeGood(trueWindAngle, speedThroughWater)
           if (actualVmg < storedVmg) {
-            perfData.gybeAngles[perfIndex] = trueWindAngle
+            perfData.optimalGybes[perfIndex] = trueWindAngle
             perfData.gybeSpeeds[perfIndex] = speedThroughWater
           }
         }
-        var beatangle = perfData.beatAngles[perfIndex]
+        var beatangle = perfData.optimalBeats[perfIndex]
         pushDelta(app, "performance.beatAngle", beatangle)
         pushDelta(app, "performance.beatAngleTargetSpeed", perfData.beatSpeeds[perfIndex])
         pushDelta(app, "performance.beatAngleVelocityMadeGood", Math.max(actualVmg, storedVmg))
 
         if (Math.abs(trueWindAngle) < Math.PI / 2) {
-          pushDelta(app, "performance.targetAngle", perfData.beatAngles[perfIndex])
+          pushDelta(app, "performance.targetAngle", perfData.optimalBeats[perfIndex])
           pushDelta(app, "performance.targetSpeed", perfData.beatSpeeds[perfIndex])
         }
-        pushDelta(app, "performance.gybeAngle", perfData.gybeAngles[perfIndex])
+        pushDelta(app, "performance.gybeAngle", perfData.optimalGybes[perfIndex])
         pushDelta(app, "performance.gybeAngleTargetSpeed", perfData.gybeSpeeds[perfIndex])
         pushDelta(app, "performance.gybeAngleVelocityMadeGood", Math.min(actualVmg, storedVmg))
 
         if (Math.abs(trueWindAngle) > Math.PI / 2) {
-          pushDelta(app, "performance.targetAngle", perfData.gybeAngles[perfIndex])
+          pushDelta(app, "performance.targetAngle", perfData.optimalGybes[perfIndex])
           pushDelta(app, "performance.targetSpeed", perfData.gybeSpeeds[perfIndex])
         }
         pushDelta(app, "performance.polarSpeed", perfData.polarSpeeds[windAngleIndex])
