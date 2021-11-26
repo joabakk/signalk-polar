@@ -139,15 +139,15 @@ module.exports = function(app, options) {
     function getWindSpeedArray(uuid) {
       return new Promise((resolve, reject) => {
         var query = `SELECT DISTINCT ROUND(environmentWindSpeedTrue+0.01, 2) AS windspeed from '${uuid}' ORDER BY windSpeed ASC`
-        //app.debug(query)
-        const queryLine = db.prepare(query)
-        const tables = queryLine.all()
-
+        app.debug(query)
+        
+        const tables = db.prepare(query).all()//@TODO this does not return anything
+        app.debug("tables: " + util.inspect(tables))
         var windSpeeds = []
         tables.forEach(speed => {
+          app.debug("wind speed inside loop: " + speed.windspeed)
           windSpeeds.push(speed.windspeed)
         })
-        //app.debug(windSpeeds)
         resolve(windSpeeds)
       })
     }
@@ -155,14 +155,14 @@ module.exports = function(app, options) {
     function getWindAngleArray(uuid, wsp, wspLow) {
       return new Promise((resolve, reject) => {
         var query = `SELECT environmentWindAngleTrueGround AS angles from '${uuid}' WHERE environmentWindSpeedTrue < ${wsp} AND environmentWindSpeedTrue > ${wspLow} ORDER BY angles ASC`
-        //app.debug(query)
+        app.debug(query)
         const queryLine = db.prepare(query)
-        const tables = queryLine.all()
+        const tables = queryLine.all()//@TODO this does not work
         var windAngles = []
         tables.forEach(angle => {
           windAngles.push(angle.angles)
         })
-        //app.debug(windAngles)
+        app.debug("windangles: " + windAngles)
         resolve(windAngles)
       })
     }
@@ -624,7 +624,7 @@ module.exports = function(app, options) {
         sqliteFile: {
           type: "string",
           title: "File for storing sqlite3 data, ",
-          default: "windDatabase.db"
+          default: "polarDatabase.db"
         },
         polarName: {
           type: "string",
@@ -757,7 +757,7 @@ module.exports = function(app, options) {
         })
       }
       const dbFile = path.join(app.getDataDirPath(), options.sqliteFile)
-      db = new Database(dbFile, { timeout: 10000 })
+      db = new Database(dbFile, { timeout: 10000})
       polarName = options.polarName.replace(/ /gi, "_")
       app.debug("polar name is " + polarName)
       var create
@@ -1040,10 +1040,10 @@ module.exports = function(app, options) {
       app.debug("Stopping")
       var csvList = ["ignore"]
       unsubscribes.forEach(f => f())
-      items.length = items.length - 1
+      keyPaths.length = keyPaths.length - 1
       engineSKPath = ""
 
-      //db.close()
+      db.close()
       clearInterval(pushInterval)
 
       app.signalk.removeListener("delta", handleDelta)
