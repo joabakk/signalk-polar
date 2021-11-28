@@ -7,7 +7,7 @@
     "express": "^4.16.3",
     "highcharts": "^9.0.0",
     "lodash": "^4.17.21",
-    "snyk": "^1.685.0",
+    "snyk": "^1.775.0",
     "uuid": "^3.3.2"
   },
   "description": "Signal K server plugin to store and retrieve polar data with sqlite3 db",
