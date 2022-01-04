@@ -729,6 +729,7 @@ module.exports = function(app, options) {
         }
       }
     },
+
     start: function(options) {
       app.debug('started plugin')
       var csvFolder = path.join(userDir, '/node_modules/', plugin.id, '/seandepagnier')
@@ -810,6 +811,12 @@ module.exports = function(app, options) {
               }
             })
           }
+          var description
+          if (table.description) {
+            description = table.description
+          } else {
+            description =  ''
+          }
 
           app.debug("polar name is " + tableName)
           create = db.prepare(`DROP TABLE IF EXISTS '${tableUuid}'`).run()
@@ -850,8 +857,10 @@ module.exports = function(app, options) {
             if (extension == '.txt'){
               csvStrBack = data.split('\n').slice(1).join('\n')
             }
-            else {
+            else if (extension == '.pol'){
               csvStrBack = data
+            } else {
+
             }
 
             console.log(csvStrBack)
@@ -880,27 +889,7 @@ module.exports = function(app, options) {
           }
           delimiter = ";"
 
-          var jsonFormat = {
-            [tableUuid]: {
-            "id": tableUuid,
-            "name": tableName,
-            "description": options.entered[counter].description,
-            "source": {
-              "label": "signalk-polar"
-            },
-            "windData": []
-            }
-          }
-
-          var windData
-
-          options.entered[counter].jsonFormat = jsonFormat //@TODO move till after db iteration
-
-          app.savePluginOptions(options, function(err, result) {
-            if (err) {
-              console.log(err)
-            }
-          })
+          var windData = []
 
           parse(csvTable, {
             trim: true,
@@ -914,10 +903,13 @@ module.exports = function(app, options) {
             }
             //app.debug(JSON.stringify(output))
             var windSpeeds = []
+            var windSpeed
+            var angleData = []
             output[0].forEach(listSpeeds)
             function listSpeeds(item, index) {
               if (index > 0) {
                 //first is "twa/tws"
+                //@TODO reading line by line, how to combine by wind speed?
 
                 var windSpeedItem = utilSK.transform(item,table.windSpeedUnit,"ms")
                 windSpeeds.push(Number(windSpeedItem))
@@ -926,17 +918,22 @@ module.exports = function(app, options) {
             //app.debug("windspeeds: " + JSON.stringify(windSpeeds))
             output.forEach(storeSpeeds)
             function storeSpeeds(item, index) {
+
               if (index > 0) {
                 //first row is header, and already parsed
                 var itemAngle = utilSK.transform(Number(item[0]),table.angleUnit,"rad")
                 //app.debug("itemAngle: " +itemAngle)
                 item.forEach(storeSpeed)
                 function storeSpeed(speedItem, index) {
+
+                  if (!angleData[index]){
+                    angleData[index] = []
+                  }
                   var speed = utilSK.transform(speedItem,table.boatSpeedUnit,  "ms"  )
                   if (index > 0 && speedItem > 0) {
                     //first item is angle, already parsed
                     var vmg = getVelocityMadeGood(speed, itemAngle)
-                    var windSpeed = windSpeeds[index-1]
+                    windSpeed = windSpeeds[index-1]
                     //app.debug(`INSERT INTO '${tableUuid} '(environmentWindSpeedTrue, environmentWindAngleTrueGround, navigationSpeedThroughWater, performanceVelocityMadeGood ) VALUES (${windSpeeds[index-1]}, ${itemAngle}, ${speed}, ${vmg})`)
                     db.prepare(
                       `INSERT INTO '${tableUuid}'(environmentWindSpeedTrue, environmentWindAngleTrueGround, navigationSpeedThroughWater, performanceVelocityMadeGood ) VALUES (${windSpeed}, 0, 0, 0)`
@@ -946,18 +943,56 @@ module.exports = function(app, options) {
                       `INSERT INTO '${tableUuid}'(environmentWindSpeedTrue, environmentWindAngleTrueGround, navigationSpeedThroughWater, performanceVelocityMadeGood ) VALUES (${windSpeed}, ${itemAngle}, ${speed}, ${vmg})`
                     )
                     .run()
+                    angleData[index].push([itemAngle, speed, vmg])
+                    //console.log(index + ' : ' + util.inspect(angleData[index]))
                     if(table.mirror){
                       db.prepare(
                         `INSERT INTO '${tableUuid}'(environmentWindSpeedTrue, environmentWindAngleTrueGround, navigationSpeedThroughWater, performanceVelocityMadeGood ) VALUES (${windSpeed}, ${-itemAngle}, ${speed}, ${vmg})`
                       )
                       .run()
+                      angleData[index].push([-itemAngle, speed, vmg])
                     }
                     //app.debug("windspeed: " + windSpeeds[index-1] + " angle: " + itemAngle + " boatspeed: " + speed)
+
                   }
+
                 }
+
               }
             }
+            windSpeeds.forEach(pushWindData)
+            function pushWindData(wind, index){
+              windData.push({
+                "trueWindSpeed": windSpeeds[index],
+                "angleData": angleData[index]
+              })
+            }
+
+            var jsonFormat = {
+              [tableUuid]: {
+              "id": tableUuid,
+              "name": tableName,
+              "description": description,
+              "source": {
+                "label": "signalk-polar"
+              },
+              "windData": windData
+              }
+            }
+
+            options.entered[counter-1].jsonFormat = jsonFormat
+
+            app.savePluginOptions(options, function(err, result) {
+              if (err) {
+                console.log(err)
+              } else {
+                console.log(result)
+              }
+            })
           })
+
+
+
           counter += 1
         })
       }
@@ -1032,6 +1067,7 @@ module.exports = function(app, options) {
 
       app.signalk.on("delta", handleDelta)
     },
+
     registerWithRouter: function(router) {
       //@TODO: add put message to delete table
 
