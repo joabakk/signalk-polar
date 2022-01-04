@@ -140,7 +140,7 @@ module.exports = function(app, options) {
       return new Promise((resolve, reject) => {
         var query = `SELECT DISTINCT ROUND(environmentWindSpeedTrue+0.01, 2) AS windspeed from '${uuid}' ORDER BY windSpeed ASC`
         app.debug(query)
-        
+
         const tables = db.prepare(query).all()//@TODO this does not return anything
         app.debug("tables: " + util.inspect(tables))
         var windSpeeds = []
@@ -586,7 +586,8 @@ module.exports = function(app, options) {
       entered: {
         items: {
           polarUuid: { "ui:widget": "hidden" },
-          csvTable: { "ui:widget": "textarea" }
+          csvTable: { "ui:widget": "textarea" },
+          jsonFormat: { "ui:widget": "hidden" }
         }
       }
     },
@@ -718,6 +719,10 @@ module.exports = function(app, options) {
                 type: "string",
                 title:
                 "OR enter csv with polar in http://jieter.github.io/orc-data/site/ style"
+              },
+              jsonFormat: {
+                type: "string",
+                title: "polar table as JSON string"
               }
             }
           }
@@ -862,6 +867,7 @@ module.exports = function(app, options) {
             //app.debug(csvTable)
 
             options.entered[counter].csvTable = csvTable
+
             app.savePluginOptions(options, function(err, result) {
               if (err) {
                 console.log(err)
@@ -874,6 +880,27 @@ module.exports = function(app, options) {
           }
           delimiter = ";"
 
+          var jsonFormat = {
+            [tableUuid]: {
+            "id": tableUuid,
+            "name": tableName,
+            "description": options.entered[counter].description,
+            "source": {
+              "label": "signalk-polar"
+            },
+            "windData": []
+            }
+          }
+
+          var windData
+
+          options.entered[counter].jsonFormat = jsonFormat //@TODO move till after db iteration
+
+          app.savePluginOptions(options, function(err, result) {
+            if (err) {
+              console.log(err)
+            }
+          })
 
           parse(csvTable, {
             trim: true,
@@ -891,6 +918,7 @@ module.exports = function(app, options) {
             function listSpeeds(item, index) {
               if (index > 0) {
                 //first is "twa/tws"
+
                 var windSpeedItem = utilSK.transform(item,table.windSpeedUnit,"ms")
                 windSpeeds.push(Number(windSpeedItem))
               }
