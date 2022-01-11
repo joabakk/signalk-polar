@@ -218,7 +218,7 @@ module.exports = function(app, options) {
         fs.mkdirSync(csvFolder)
       }
       fs.readdirSync(csvFolder).forEach(file => {
-        if (file != 'Example'){
+        if (file != 'Example' && file != 'Additional'){
           csvList.push(file)
         }
       })
@@ -255,7 +255,7 @@ module.exports = function(app, options) {
             var output = []
             var delimiter, lineBreak, csvTable
             if(!table.csvTable && table.csvPreset && table.csvPreset != "ignore"){
-              console.log(table.csvPreset)
+              //console.log(table.csvPreset)
               var extension = path.extname(table.csvPreset)
               //app.debug("extension: " + extension)
               var data = fs.readFileSync(path.join(userDir, '/node_modules/', plugin.id, '/seandepagnier/', table.csvPreset), 'utf8', function (err, data) {
@@ -272,9 +272,9 @@ module.exports = function(app, options) {
                 csvStrBack = data
               }
 
-              console.log(csvStrBack)
+
               var csvStr = csvStrBack.replace(/\\/g, '/')
-              console.log(csvStr)
+              console.log('csvStr: ' + csvStr)
               if (extension == '.csv'){
                 var csvTab = csvStrBack.trim().replace(/\°/g, '')
                 csvTable = csvTab.replace(/( [\r,\n]+)|(;\D*\n)|(;\D*[\r,\n]+)/g, '\r\n')
@@ -298,7 +298,7 @@ module.exports = function(app, options) {
             }
             delimiter = ";"
 
-            var windData = []
+
 
             parse(csvTable, {
               trim: true,
@@ -306,11 +306,12 @@ module.exports = function(app, options) {
               delimiter: delimiter,
               record_delimiter: lineBreak
             }).on("readable", function() {
+              let windData = []
               let record
               while ((record = this.read())) {
                 output.push(record)
               }
-              //app.debug(JSON.stringify(output))
+              console.log(JSON.stringify(output))
               var windSpeeds = []
               var angleData = []
               output[0].forEach(listSpeeds)
@@ -340,9 +341,9 @@ module.exports = function(app, options) {
                     if (index > 0) {
                       //first item is angle, already parsed
                       var vmg = getVelocityMadeGood(speed, itemAngle)
-                      angleData[index].push([itemAngle, speed, vmg])
+                      angleData[index-1].push([itemAngle, speed, vmg])
                       if(table.mirror){
-                        angleData[index].push([-itemAngle, speed, vmg])
+                        angleData[index-1].push([-itemAngle, speed, vmg])
                       }
 
                     }
@@ -351,13 +352,13 @@ module.exports = function(app, options) {
 
                 }
               }
-              console.log(util.inspect(windSpeeds))
+              //console.log('windSpeeds:' + util.inspect(windSpeeds))
               windSpeeds.forEach(pushWindData)
 
               function pushWindData(wind, index){
                 console.log('wind: ' + wind + ' index: ' + index)
                 windData.push({
-                  "trueWindSpeed": windSpeeds[index],
+                  "trueWindSpeed": wind,
                   "angleData": angleData[index]
                 })
               }
@@ -377,10 +378,13 @@ module.exports = function(app, options) {
               //store polar as [uuid].json
               let tableFile = path.join(userDir, 'plugin-config-data', plugin.id, tableUuid)
               tableFile = tableFile.slice(0, -1) + '.json'
-              console.log(tableFile)
+              console.log('tableFile: ' + tableFile)
               let jsonStore = JSON.stringify(jsonFormat, null, 2)
-              console.log("jsonStore is: " + typeof(jsonStore))
+              //console.log("jsonStore is: " + typeof(jsonStore))
+              //console.log("jsonStore : " + util.inspect(jsonStore))
               fs.writeFile(tableFile, jsonStore, (err) => {
+                console.log('writing json file')
+
                 if (err) {
                   console.log(err);
                   process.exit(1);
