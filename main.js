@@ -236,7 +236,7 @@ module.exports = function(app, options) {
             } else {
               tableUuid = uuidv4()
               options.static[counter].polarUuid = tableUuid
-              //app.debug("Polar uuid does not exist, creating '" + tableUuid + "'")
+              app.debug("Polar uuid does not exist, creating '" + tableUuid + "'")
               app.savePluginOptions(options, function(err, result) {
                 if (err) {
                   console.log(err)
@@ -279,7 +279,7 @@ module.exports = function(app, options) {
                 var csvTab = csvStrBack.trim().replace(/\°/g, '')
                 csvTable = csvTab.replace(/( [\r,\n]+)|(;\D*\n)|(;\D*[\r,\n]+)/g, '\r\n')
               }
-              else {
+              else if (extension == '.pol'){
                 csvTable = csvStr.trim().replace(/(\t+|\t| |\t\t|  )(?!\n| \n|$)/g, ";")
               }
               //app.debug(csvTable)
