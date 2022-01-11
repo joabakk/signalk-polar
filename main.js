@@ -37,16 +37,21 @@ module.exports = function(app, options) {
   var shouldStore = function(path) {
     return true
   }
+  var allPolars = {}
+  var polarList = []
+  var activePolar
+
 
   return {
     id: "signalk-polar",
     name: "Polar storage and retrieval",
     description:
-    "Signal K server plugin that stores and retrieves polar data from sqlite3 database",
+    "Signal K server plugin that stores and retrieves static and/or dynamic polar data",
     uiSchema: {
+      activePolar: { "ui:widget": "hidden" },
       dynamic: {
         items:{
-          mainPolarUuid: { "ui:widget": "hidden" }
+          polarUuid: { "ui:widget": "hidden" }
         }
       },
       static: {
@@ -64,8 +69,12 @@ module.exports = function(app, options) {
       properties: {
         useDynamicPolar: {
           type: "boolean",
-          title: "Use dynamic polar diagram (may slow down server)",
+          title: "Use dynamic polar diagram (may slow down server). First item will be active polar",
           default: false
+        },
+        activePolar: {
+          type: "string",
+          title: "UUID of active polar table",
         },
         dynamic: {
           type: "array",
@@ -113,7 +122,7 @@ module.exports = function(app, options) {
                 title: "Description of the polar diagram",
                 default: "Dynamic polar diagram from actual sailing"
               },
-              mainPolarUuid: {
+              polarUuid: {
                 type: "string",
                 title: "Main polar UUID"
               },
@@ -239,10 +248,11 @@ module.exports = function(app, options) {
               app.debug("Polar uuid does not exist, creating '" + tableUuid + "'")
               app.savePluginOptions(options, function(err, result) {
                 if (err) {
-                  console.log(err)
+                  app.debug(err)
                 }
               })
             }
+            polarList.push(table.polarUuid)
             var description
             if (table.description) {
               description = table.description
@@ -255,12 +265,12 @@ module.exports = function(app, options) {
             var output = []
             var delimiter, lineBreak, csvTable
             if(!table.csvTable && table.csvPreset && table.csvPreset != "ignore"){
-              //console.log(table.csvPreset)
+              //app.debug(table.csvPreset)
               var extension = path.extname(table.csvPreset)
               //app.debug("extension: " + extension)
               var data = fs.readFileSync(path.join(userDir, '/node_modules/', plugin.id, '/seandepagnier/', table.csvPreset), 'utf8', function (err, data) {
                 if (err) {
-                  console.log(err);
+                  app.debug(err);
                   process.exit(1);
                 }
               })
@@ -274,7 +284,7 @@ module.exports = function(app, options) {
 
 
               var csvStr = csvStrBack.replace(/\\/g, '/')
-              console.log('csvStr: ' + csvStr)
+              app.debug('csvStr: ' + csvStr)
               if (extension == '.csv'){
                 var csvTab = csvStrBack.trim().replace(/\°/g, '')
                 csvTable = csvTab.replace(/( [\r,\n]+)|(;\D*\n)|(;\D*[\r,\n]+)/g, '\r\n')
@@ -288,7 +298,7 @@ module.exports = function(app, options) {
 
               app.savePluginOptions(options, function(err, result) {
                 if (err) {
-                  console.log(err)
+                  app.debug(err)
                 }
               })
 
@@ -311,7 +321,7 @@ module.exports = function(app, options) {
               while ((record = this.read())) {
                 output.push(record)
               }
-              console.log(JSON.stringify(output))
+              app.debug(JSON.stringify(output))
               var windSpeeds = []
               var angleData = []
               output[0].forEach(listSpeeds)
@@ -352,11 +362,11 @@ module.exports = function(app, options) {
 
                 }
               }
-              //console.log('windSpeeds:' + util.inspect(windSpeeds))
+              //app.debug('windSpeeds:' + util.inspect(windSpeeds))
               windSpeeds.forEach(pushWindData)
 
               function pushWindData(wind, index){
-                console.log('wind: ' + wind + ' index: ' + index)
+                app.debug('wind: ' + wind + ' index: ' + index)
                 windData.push({
                   "trueWindSpeed": wind,
                   "angleData": angleData[index]
@@ -378,21 +388,20 @@ module.exports = function(app, options) {
               //store polar as [uuid].json
               let tableFile = path.join(userDir, 'plugin-config-data', plugin.id, tableUuid)
               tableFile = tableFile.slice(0, -1) + '.json'
-              console.log('tableFile: ' + tableFile)
+              app.debug('tableFile: ' + tableFile)
               let jsonStore = JSON.stringify(jsonFormat, null, 2)
-              //console.log("jsonStore is: " + typeof(jsonStore))
-              //console.log("jsonStore : " + util.inspect(jsonStore))
+              //app.debug("jsonStore is: " + typeof(jsonStore))
+              //app.debug("jsonStore : " + util.inspect(jsonStore))
               fs.writeFile(tableFile, jsonStore, (err) => {
-                console.log('writing json file')
+                app.debug('writing json file')
 
                 if (err) {
-                  console.log(err);
+                  app.debug(err);
                   process.exit(1);
                 }
               })
 
             })
-
             counter += 1
           })
         }
@@ -401,20 +410,98 @@ module.exports = function(app, options) {
         options.updateTables = false
         app.savePluginOptions(options, function(err, result) {
           if (err) {
-            console.log(err)
+            app.debug(err)
           }
         })
       }
 
       if (options.useDynamicPolar){
+        var mainPolarUuid
+        if (options.dynamic[0].polarUuid) {
+          mainPolarUuid = options.dynamic[0].polarUuid
+          app.debug("Polar uuid exists: " + mainPolarUuid, typeof mainPolarUuid)
+        } else {
+          mainPolarUuid = uuidv4()
+          options.dynamic[0].polarUuid = mainPolarUuid
+          app.debug("Polar uuid does not exist, creating " + mainPolarUuid)
+          app.savePluginOptions(options, function(err, result) {
+            if (err) {
+              app.debug(err)
+            }
+          })
+        }
+
         //handle deltas
 
+        //use the dynamic polar as active
+        activePolar = options.dynamic[0].polarUuid
+        polarList.push(mainPolarUuid)
+        options.activePolar = activePolar
+        app.debug('active Polar: ' + options.activePolar)
+        app.savePluginOptions(options, function(err, result) {
+          if (err) {
+            app.debug(err)
+          }
+        })
       }
+
+      else if(options.static) {
+        options.static.forEach(table => {
+          polarList.push(table.polarUuid)
+        })
+        if (options.static.length  == 1){
+          activePolar = options.static[0].polarUuid
+          options.activePolar = activePolar
+          app.debug('active Polar: ' + options.activePolar)
+          app.savePluginOptions(options, function(err, result) {
+            if (err) {
+              app.debug(err)
+            }
+          })
+        }
+      }
+    },
+
+    registerWithRouter: function(router) {
+
+        //@TODO: add put message to delete table
+
+        router.get("/polarTables", async(req, res) => {
+          res.contentType("application/json")
+          var polarsCombined = {}
+
+          const arr = await Promise.all(
+            polarList.map(item => {
+              return getPolar(item, userDir, plugin)
+            })
+          )
+          var results =  arr.reduce((a, b) => Object.assign(a, b), {})
+          var response = { polars: results }
+          res.send(response)
+        })
+
+        router.get("/polarTable", async (req, res) => {
+          res.contentType("application/json")
+          var uuid = req.query.uuid?req.query.uuid:activePolar
+          var response =  await getPolar(uuid, userDir, plugin)
+          res.send(response)
+        })
+
+        router.get("/listPolarTables", (req, res) => {
+          res.contentType("application/json")
+          app.debug(polarList)
+          res.send(polarList)
+        })
+
+        router.get("/deletePolarTable", (req, res) =>{
+          var uuid = req.query.uuid
+          app.debug("requested to delete " + uuid)
+          deletePolarTable(uuid)
+          res.redirect('back')
+        })
 
 
     },
-
-    registerWithRouter: function(router) {},
     stop: function() {}
   }
 
@@ -438,7 +525,7 @@ function getTrueWindAngle(speed, trueWindSpeed, apparentWindspeed, windAngle) {
   } else if (windAngle == Math.PI) {
     return Math.PI
   } else if (cosAlpha > 1 || cosAlpha < -1) {
-    console.log(
+    app.debug(
       "invalid triangle aws: " +
       apparentWindspeed +
       " tws: " +
@@ -488,4 +575,18 @@ function pushDelta(app, path, value) {
     ]
   })
   return
+}
+
+const getPolar = async (uuid, userDir, plugin) => {
+  let tableFile = path.join(userDir, 'plugin-config-data', plugin.id, uuid)
+  tableFile = tableFile.slice(0, -1) + '.json'
+  var rawData = await fs.readFileSync(tableFile, function (err, data) {
+    if (err) {
+      app.debug(err);
+      process.exit(1);
+    }
+  })
+  var response = JSON.parse(rawData)
+  //console.log(response)
+  return response
 }
