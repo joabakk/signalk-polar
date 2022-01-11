@@ -31,7 +31,7 @@
   "author": {
     "name": "Joachim Bakke"
   },
-  "main": "index.js",
+  "main": "main.js",
   "maintainers": [
     {
       "name": "joabakk",

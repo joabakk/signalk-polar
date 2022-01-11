@@ -137,6 +137,9 @@ module.exports = function(app, options) {
     }
 
     function getWindSpeedArray(uuid) {
+      return options.entered //@TODO options out of scope
+    }
+    /*{
       return new Promise((resolve, reject) => {
         var query = `SELECT DISTINCT ROUND(environmentWindSpeedTrue+0.01, 2) AS windspeed from '${uuid}' ORDER BY windSpeed ASC`
         app.debug(query)
@@ -150,7 +153,7 @@ module.exports = function(app, options) {
         })
         resolve(windSpeeds)
       })
-    }
+    }*/
 
     function getWindAngleArray(uuid, wsp, wspLow) {
       return new Promise((resolve, reject) => {
@@ -990,8 +993,6 @@ module.exports = function(app, options) {
               }
             })
           })
-
-
 
           counter += 1
         })
