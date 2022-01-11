@@ -344,8 +344,8 @@ module.exports = function(app, options) {
                   item.forEach(storeSpeed)
                   function storeSpeed(speedItem, index) {
 
-                    if (!angleData[index]){
-                      angleData[index] = []
+                    if (!angleData[index-1]){
+                      angleData[index-1] = [[0,null,null]]
                     }
                     var speed = utilSK.transform(speedItem,table.boatSpeedUnit,  "ms"  )
                     if (index > 0) {
@@ -369,7 +369,7 @@ module.exports = function(app, options) {
                 app.debug('wind: ' + wind + ' index: ' + index)
                 windData.push({
                   "trueWindSpeed": wind,
-                  "angleData": angleData[index]
+                  "angleData": angleData[index].sort((a, b) => a[0] - b[0])
                 })
               }
 
