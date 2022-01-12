@@ -589,7 +589,7 @@ module.exports = function(app, options) {
         }
       }
 
-      //app.signalk.on("delta", handleDelta)
+      app.signalk.on("delta", handleDelta)
 
 
       var fullActivePolar = {}
@@ -601,6 +601,28 @@ module.exports = function(app, options) {
       let pushInterval = setInterval(function() {
         var beatAngle, beatSpeed
         var windIndex = 0 //@TODO search for right one
+        var activePolarWindArray = []
+        fullActivePolar[activePolar].windData.forEach(item => {
+          activePolarWindArray.push(item.trueWindSpeed)
+        })
+        function closest(num, arr) {
+          var curr = arr[0],
+          diff = Math.abs(num - curr),
+          index = 0;
+          for (var val = 0; val < arr.length; val++) {
+            let newdiff = Math.abs(num - arr[val]);
+            if (newdiff < diff) {
+              diff = newdiff;
+              curr = arr[val];
+              index = val;
+            }
+          }
+          return index;
+        }
+
+        var windIndex = closest(currentSog, activePolarWindArray)
+        console.log('currentSog: ' + currentSog + 'windIndex: ' + windIndex)
+
         if(fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][0]){
           beatAngle = fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][0]
         }
@@ -736,13 +758,21 @@ function pushDelta(app, path, value, plugin) {
 const getPolar = async (uuid, userDir, plugin) => {
   let tableFile = path.join(userDir, 'plugin-config-data', plugin.id, uuid)
   tableFile = tableFile.slice(0, -1) + '.json'
-  var rawData = await fs.readFileSync(tableFile, function (err, data) {
-    if (err) {
-      app.debug(err);
-      process.exit(1);
+  try {
+    if (fs.existsSync(tableFile)) {
+      var rawData = await fs.readFileSync(tableFile, function (err, data) {
+        if (err) {
+          app.debug(err);
+          process.exit(1);
+        }
+      })
+
+      var response = JSON.parse(rawData)
+      //console.log(response)
+      return response
     }
-  })
-  var response = JSON.parse(rawData)
-  //console.log(response)
-  return response
+  } catch(err) {
+    console.error(err)
+  }
+
 }
