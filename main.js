@@ -40,6 +40,16 @@ module.exports = function(app, options) {
   var allPolars = {}
   var polarList = []
   var activePolar
+  const keyPaths = [
+    "performance.velocityMadeGood", // if empty, populate from this plugin
+    "navigation.rateOfTurn", // if above threshold, vessel is turning and no data is stored
+    "navigation.speedThroughWater",
+    "environment.wind.angleApparent",
+    "environment.wind.speedApparent",
+    "navigation.courseOverGroundTrue",
+    "navigation.speedOverGround"
+  ]
+  var currentVmg, currentRot, currentStw, currentAwa, currentTwa, currentAws, currentCog, currentSog, currentTws
 
 
   return {
@@ -367,8 +377,49 @@ module.exports = function(app, options) {
 
               function pushWindData(wind, index){
                 app.debug('wind: ' + wind + ' index: ' + index)
+                let optimalBeats =[]
+                let optimalGybes = []
+
+                function findOptimalBeats(arr) {
+                  var bestVmg  = 0
+                  var bestOrigin = [];
+                  for(var i = 0; i < arr.length; i++){
+                    if(arr[i][2] && arr[i][2] > bestVmg){
+                      bestVmg = arr[i][2];
+                      bestOrigin = [arr[i][0],arr[i][1]];
+                    }
+                  }
+                  if(table.mirror){
+                    return [bestOrigin, [-bestOrigin[0], bestOrigin[1]]]
+                  } else {
+                    return [bestOrigin, null]//@TODO should find port beat
+                  }
+                }
+
+                function findOptimalGybes(arr) {
+                  var bestVmg = 0,
+                  bestOrigin = [];
+                  for(var i = 0; i < arr.length; i++){
+                    if(arr[i][2] && arr[i][2] < bestVmg){
+                      bestVmg = arr[i][2];
+                      bestOrigin = [arr[i][0],arr[i][1]];
+                    }
+                  }
+                  if(table.mirror){
+                    return [bestOrigin, [-bestOrigin[0], bestOrigin[1]]]
+                  } else {
+                    return [bestOrigin, null]//@TODO should find port gybe
+                  }
+                }
+
+                optimalBeats = findOptimalBeats(angleData[index])
+                optimalGybes = findOptimalGybes(angleData[index])
+
+
                 windData.push({
                   "trueWindSpeed": wind,
+                  "optimalBeats": optimalBeats,
+                  "optimalGybes": optimalGybes,
                   "angleData": angleData[index].sort((a, b) => a[0] - b[0])
                 })
               }
@@ -460,6 +511,109 @@ module.exports = function(app, options) {
           })
         }
       }
+
+      let obj = {}
+      keyPaths.forEach(element => {
+        obj[element] = true
+      })
+
+      shouldStore = function(path) {
+        return typeof obj[path] != "undefined"
+      }
+
+      var handleDelta = function(delta, options){
+        if (delta.updates && delta.context === selfContext) {
+          delta.updates.forEach(update => {
+            //app.debug('update: ' + util.inspect(update))
+
+            if (
+              update.values &&
+              typeof update.$source != "undefined" &&
+              update.$source != "signalk-polar"
+            ) {
+              var points = update.values.reduce((acc, pathValue, options) => {
+                //app.debug('found ' + pathValue.path)
+                if (pathValue.path == "navigation.rateOfTurn") {
+                  //var rotTime = new Date(update.timestamp)
+                  //rotTimeSeconds = rotTime.getTime() / 1000 //need to convert to seconds for comparison
+                  currentRot = pathValue.value
+                }
+                if (pathValue.path == "navigation.speedThroughWater") {
+                  //var stwTime = new Date(update.timestamp)
+                  //stwTimeSeconds = stwTime.getTime() / 1000
+                  currentStw = pathValue.value
+                }
+                if (pathValue.path == "environment.wind.angleApparent") {
+                  //var awaTime = new Date(update.timestamp)
+                  //awaTimeSeconds = awaTime.getTime() / 1000
+                  currentAwa = pathValue.value
+                }
+                if (pathValue.path == "environment.wind.angleTrueGround") {
+                  currentTwa = pathValue.value
+                  //var twaTime = new Date(update.timestamp)
+                  //twaTimeSeconds = twaTime.getTime() / 1000
+                }
+                if (pathValue.path == "environment.wind.speedApparent") {
+                  //var awsTime = new Date(update.timestamp)
+                  //awsTimeSeconds = awsTime.getTime() / 1000
+                  currentAws = pathValue.value
+                }
+                if (pathValue.path == "environment.wind.speedTrue") {
+                  currentTws = pathValue.value
+                  //var twsTime = new Date(update.timestamp)
+                  //twsTimeSeconds = twsTime.getTime() / 1000
+                }
+                if (pathValue.path == "navigation.courseOverGroundTrue") {
+                  //var cogTime = new Date(update.timestamp)
+                  //cogTimeSeconds = cogTime.getTime() / 1000
+                  currentCog = pathValue.value
+                }
+                if (pathValue.path == "navigation.speedOverGround") {
+                  //var sogTime = new Date(update.timestamp)
+                  //sogTimeSeconds = sogTime.getTime() / 1000
+                  currentSog = pathValue.value
+                }
+                if (pathValue.path == "performance.velocityMadeGood") {
+                  currentVmg = pathValue.value
+                  //var vmgTime = new Date(update.timestamp)
+                  //vmgTimeSeconds = vmgTime.getTime() / 1000
+                }
+                /*//calculate if old or non existing
+                tws = getTrueWindSpeed(stw, aws, awa)
+                twa = getTrueWindAngle(stw, tws, aws, awa)
+                vmg = getVelocityMadeGood(stw, twa)
+                */
+              })
+            }
+          })
+        }
+      }
+
+      //app.signalk.on("delta", handleDelta)
+
+
+      var fullActivePolar = {}
+      getPolar(activePolar, userDir, plugin).then((full) => {
+        fullActivePolar = full
+      })
+
+
+      let pushInterval = setInterval(function() {
+        var beatAngle, beatSpeed
+        var windIndex = 0 //@TODO search for right one
+        if(fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][0]){
+          beatAngle = fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][0]
+        }
+        if(fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][1]){
+          beatSpeed = fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][1]
+        }
+        pushDelta(app, "performance.beatAngle", beatAngle, plugin)
+        pushDelta(app, "performance.beatAngleTargetSpeed", beatSpeed, plugin)
+
+        //app.debug("tws: " + tws + " abs twa: " + Math.abs(twa) + " stw: " + stw)
+        //getTarget(app, tws, twsInterval, twa, twaInterval, stw)
+        //app.debug("sent to setInterval:" +  tws + " : " + twsInterval + " : " + Math.abs(twa) + " : " + twaInterval)
+      }, 1000)
     },
 
     registerWithRouter: function(router) {
@@ -502,7 +656,9 @@ module.exports = function(app, options) {
 
 
     },
-    stop: function() {}
+    stop: function() {
+      //app.signalk.removeListener("delta", handleDelta)
+    }
   }
 
 }
@@ -561,7 +717,7 @@ function getVelocityMadeGood(stw, twa) {
   return Math.cos(twa) * stw
 }
 
-function pushDelta(app, path, value) {
+function pushDelta(app, path, value, plugin) {
   app.handleMessage(plugin.id, {
     updates: [
       {
