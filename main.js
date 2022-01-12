@@ -610,6 +610,7 @@ module.exports = function(app, options) {
           diff = Math.abs(num - curr),
           index = 0;
           for (var val = 0; val < arr.length; val++) {
+            console.log(val + ' comparing ' + num + ' to ' + arr[val])
             let newdiff = Math.abs(num - arr[val]);
             if (newdiff < diff) {
               diff = newdiff;
@@ -620,8 +621,8 @@ module.exports = function(app, options) {
           return index;
         }
 
-        var windIndex = closest(currentSog, activePolarWindArray)
-        console.log('currentSog: ' + currentSog + 'windIndex: ' + windIndex)
+        var windIndex = closest(currentTws, activePolarWindArray)
+        console.log('currentTws: ' + currentTws + ' windIndex: ' + windIndex)
 
         if(fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][0]){
           beatAngle = fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][0]
