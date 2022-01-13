@@ -358,7 +358,7 @@ module.exports = function(app, options) {
                       angleData[index-1] = [[0,null,null]]
                     }
                     var speed = utilSK.transform(speedItem,table.boatSpeedUnit,  "ms"  )
-                    if (index > 0) {
+                    if (index > 0 && speed != 0) {
                       //first item is angle, already parsed
                       var vmg = getVelocityMadeGood(speed, itemAngle)
                       angleData[index-1].push([itemAngle, speed, vmg])
@@ -599,39 +599,32 @@ module.exports = function(app, options) {
 
 
       let pushInterval = setInterval(function() {
-        var beatAngle, beatSpeed
+        var beatAngle, beatSpeed, gybeAngle, gybeSpeed
         var windIndex = 0 //@TODO search for right one
         var activePolarWindArray = []
         fullActivePolar[activePolar].windData.forEach(item => {
           activePolarWindArray.push(item.trueWindSpeed)
         })
-        function closest(num, arr) {
-          var curr = arr[0],
-          diff = Math.abs(num - curr),
-          index = 0;
-          for (var val = 0; val < arr.length; val++) {
-            console.log(val + ' comparing ' + num + ' to ' + arr[val])
-            let newdiff = Math.abs(num - arr[val]);
-            if (newdiff < diff) {
-              diff = newdiff;
-              curr = arr[val];
-              index = val;
-            }
-          }
-          return index;
-        }
 
         var windIndex = closest(currentTws, activePolarWindArray)
-        console.log('currentTws: ' + currentTws + ' windIndex: ' + windIndex)
+        //app.debug('currentTws: ' + currentTws + ' windIndex: ' + windIndex)
 
         if(fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][0]){
           beatAngle = fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][0]
+          pushDelta(app, "performance.beatAngle", beatAngle, plugin)
         }
         if(fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][1]){
           beatSpeed = fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][1]
+          pushDelta(app, "performance.beatAngleTargetSpeed", beatSpeed, plugin)
         }
-        pushDelta(app, "performance.beatAngle", beatAngle, plugin)
-        pushDelta(app, "performance.beatAngleTargetSpeed", beatSpeed, plugin)
+        if(fullActivePolar[activePolar].windData[windIndex].optimalGybes[0][0]){
+          gybeAngle = fullActivePolar[activePolar].windData[windIndex].optimalGybes[0][0]
+          pushDelta(app, "performance.gybeAngle", gybeAngle, plugin)
+        }
+        if(fullActivePolar[activePolar].windData[windIndex].optimalGybes[0][1]){
+          gybeSpeed = fullActivePolar[activePolar].windData[windIndex].optimalGybes[0][1]
+          pushDelta(app, "performance.gybeAngleTargetSpeed", gybeSpeed, plugin)
+        }
 
         //app.debug("tws: " + tws + " abs twa: " + Math.abs(twa) + " stw: " + stw)
         //getTarget(app, tws, twsInterval, twa, twaInterval, stw)
@@ -756,24 +749,50 @@ function pushDelta(app, path, value, plugin) {
   return
 }
 
-const getPolar = async (uuid, userDir, plugin) => {
-  let tableFile = path.join(userDir, 'plugin-config-data', plugin.id, uuid)
-  tableFile = tableFile.slice(0, -1) + '.json'
-  try {
-    if (fs.existsSync(tableFile)) {
-      var rawData = await fs.readFileSync(tableFile, function (err, data) {
-        if (err) {
-          app.debug(err);
-          process.exit(1);
-        }
-      })
-
-      var response = JSON.parse(rawData)
-      //console.log(response)
-      return response
+function closest(num, arr) {
+  var curr = arr[0],
+  diff = num - curr,
+  index = 0;
+  if(num<arr[0]){
+    return 0
+  } else if (num>arr[arr.length]){
+    return arr.length
+  } else {
+    for (var val = 0; val < arr.length-1; val++) {
+      //app.debug(val + ' comparing ' + num + ' to ' + arr[val])
+      let newdiff = num - arr[val];
+      if (newdiff < diff && newdiff > 0) {
+        diff = newdiff;
+        curr = arr[val];
+        index = val;
+      }
     }
-  } catch(err) {
-    console.error(err)
+    return index;
   }
+}
 
+const getPolar = async (uuid, userDir, plugin) => {
+  if(typeof(userDir) != 'undefined' && typeof(uuid) != 'undefined'){
+    let tableFile = path.join(userDir, 'plugin-config-data', plugin.id, uuid)
+    tableFile = tableFile.slice(0, -1) + '.json'
+    try {
+      if (fs.existsSync(tableFile)) {
+        var rawData = await fs.readFileSync(tableFile, function (err, data) {
+          if (err) {
+            app.debug(err);
+            process.exit(1);
+          }
+        })
+
+        var response = JSON.parse(rawData)
+        //app.debug(response)
+        return response
+      }
+    } catch(err) {
+      console.error(err)
+    }
+  }
+  else {
+    return
+  }
 }
