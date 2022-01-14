@@ -242,6 +242,10 @@ module.exports = function(app, options) {
         }
       })
 
+      if (options.activePolar){
+        activePolar = options.activePolar
+      }
+
       if (options.updateTables){
         //update tables and JSON files
         if (options.static && options.static.length > 0) {
@@ -580,9 +584,12 @@ module.exports = function(app, options) {
                 }
                 /*//calculate if old or non existing
                 tws = getTrueWindSpeed(stw, aws, awa)
-                twa = getTrueWindAngle(stw, tws, aws, awa)
+                currentTwa = getTrueWindAngle(currentStw, currentTws, currentAws, currentAwa)
                 vmg = getVelocityMadeGood(stw, twa)
                 */
+                //@TODO add stale logic
+                currentTwa = getTrueWindAngle(currentStw, currentTws, currentAws, currentAwa)
+                currentVmg = getVelocityMadeGood(currentStw, currentTwa)
               })
             }
           })
@@ -609,21 +616,110 @@ module.exports = function(app, options) {
         var windIndex = closest(currentTws, activePolarWindArray)
         //app.debug('currentTws: ' + currentTws + ' windIndex: ' + windIndex)
 
+        //@TODO: if wind angle not more acute than beatAngle or more obtuse than gybeAngles, interpolate between angles for lower and higher windIndex, and between these
+        var polarSpeed, polarSpeedRatio
+        pushDelta(app, "performance.velocityMadeGood", currentVmg, plugin)
+        var windAngleIndex = closestAngle(currentTwa, fullActivePolar[activePolar].windData[windIndex].angleData)
+        if(windIndex == 0 || windIndex == activePolarWindArray.length){
+          //if lowest or highest wind speed in table, interpolate only for wind angle
+          polarSpeed = interpolate(
+            currentTwa,
+            fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex][0],
+            fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex+1][0],
+            fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex][1],
+            fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex+1][1],
+          )
+          polarSpeedRatio = currentStw/polarSpeed
+          pushDelta(app, "performance.polarSpeed", polarSpeed, plugin)
+          pushDelta(app, "performance.polarSpeedRatio", polarSpeedRatio, plugin)
+        } else {
+          var psLow = interpolate(
+            currentTwa,
+            fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex][0],
+            fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex+1][0],
+            fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex][1],
+            fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex+1][1],
+          )
+          var psHigh = interpolate(
+            currentTwa,
+            fullActivePolar[activePolar].windData[windIndex+1].angleData[windAngleIndex][0],
+            fullActivePolar[activePolar].windData[windIndex+1].angleData[windAngleIndex+1][0],
+            fullActivePolar[activePolar].windData[windIndex+1].angleData[windAngleIndex][1],
+            fullActivePolar[activePolar].windData[windIndex+1].angleData[windAngleIndex+1][1],
+          )
+          polarSpeed = interpolate(
+            currentTws,
+            ullActivePolar[activePolar].windData[windIndex].trueWindSpeed,
+            fullActivePolar[activePolar].windData[windIndex+1].trueWindSpeed,
+            psLow,
+            psHigh
+          )
+          polarSpeedRatio = currentStw/polarSpeed
+          pushDelta(app, "performance.polarSpeed", polarSpeed, plugin)
+          pushDelta(app, "performance.polarSpeedRatio", polarSpeedRatio, plugin)
+        }
+        //console.log("windAngle: " + currentTwa + " betw " + fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex][0] + " and " + fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex+1][0])
+
         if(fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][0]){
-          beatAngle = fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][0]
+          if(windIndex == 0 || windIndex == activePolarWindArray.length){
+            beatAngle = fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][0]
+          } else {
+            beatAngle = interpolate(
+              currentTws,
+              fullActivePolar[activePolar].windData[windIndex].trueWindSpeed,
+              fullActivePolar[activePolar].windData[windIndex+1].trueWindSpeed,
+              fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][0],
+              fullActivePolar[activePolar].windData[windIndex+1].optimalBeats[0][0],
+            )
+          }
           pushDelta(app, "performance.beatAngle", beatAngle, plugin)
         }
         if(fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][1]){
-          beatSpeed = fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][1]
+          if(windIndex == 0 || windIndex == activePolarWindArray.length){
+            beatSpeed = fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][1]
+          } else {
+            beatSpeed = interpolate(
+              currentTws,
+              fullActivePolar[activePolar].windData[windIndex].trueWindSpeed,
+              fullActivePolar[activePolar].windData[windIndex+1].trueWindSpeed,
+              beatSpeed = fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][1],
+              beatSpeed = fullActivePolar[activePolar].windData[windIndex+1].optimalBeats[0][1]
+            )
+          }
           pushDelta(app, "performance.beatAngleTargetSpeed", beatSpeed, plugin)
         }
         if(fullActivePolar[activePolar].windData[windIndex].optimalGybes[0][0]){
-          gybeAngle = fullActivePolar[activePolar].windData[windIndex].optimalGybes[0][0]
+          if(windIndex == 0 || windIndex == activePolarWindArray.length){
+            gybeAngle = fullActivePolar[activePolar].windData[windIndex].optimalGybes[0][0]
+          } else {
+            gybeAngle = interpolate(
+              currentTws,
+              fullActivePolar[activePolar].windData[windIndex].trueWindSpeed,
+              fullActivePolar[activePolar].windData[windIndex+1].trueWindSpeed,
+              gybeAngle = fullActivePolar[activePolar].windData[windIndex].optimalGybes[0][0],
+              gybeAngle = fullActivePolar[activePolar].windData[windIndex+1].optimalGybes[0][0]
+            )
+          }
           pushDelta(app, "performance.gybeAngle", gybeAngle, plugin)
         }
         if(fullActivePolar[activePolar].windData[windIndex].optimalGybes[0][1]){
-          gybeSpeed = fullActivePolar[activePolar].windData[windIndex].optimalGybes[0][1]
+          if(windIndex == 0 || windIndex == activePolarWindArray.length){
+            gybeSpeed = fullActivePolar[activePolar].windData[windIndex].optimalGybes[0][1]
+          } else {
+            gybeSpeed = interpolate(
+              currentTws,
+              fullActivePolar[activePolar].windData[windIndex].trueWindSpeed,
+              fullActivePolar[activePolar].windData[windIndex+1].trueWindSpeed,
+              gybeSpeed = fullActivePolar[activePolar].windData[windIndex].optimalGybes[0][1],
+              gybeSpeed = fullActivePolar[activePolar].windData[windIndex+1].optimalGybes[0][1]
+            )
+          }
+
           pushDelta(app, "performance.gybeAngleTargetSpeed", gybeSpeed, plugin)
+        }
+
+        if(windIndex == 0 || windIndex == activePolarWindArray.length){
+
         }
 
         //app.debug("tws: " + tws + " abs twa: " + Math.abs(twa) + " stw: " + stw)
@@ -697,14 +793,14 @@ function getTrueWindAngle(speed, trueWindSpeed, apparentWindspeed, windAngle) {
   } else if (windAngle == Math.PI) {
     return Math.PI
   } else if (cosAlpha > 1 || cosAlpha < -1) {
-    app.debug(
+    /*app.debug(
       "invalid triangle aws: " +
       apparentWindspeed +
       " tws: " +
       trueWindSpeed +
       " bsp: " +
       speed
-    )
+    )*/
     return null
   } else {
     var calc
@@ -769,6 +865,17 @@ function closest(num, arr) {
     }
     return index;
   }
+}
+
+function closestAngle(twa, angleData){
+  angleData.sort((a, b) => a[0] - b[0])
+  return closest(twa, angleData.map(x => x[0]))
+}
+
+function interpolate(x, xbottom, xtop, ybottom, ytop){
+  var xdist = xtop - xbottom
+  var ydist = ytop - ybottom;
+  return (ybottom + (((x-xbottom) / xdist)) * ydist)
 }
 
 const getPolar = async (uuid, userDir, plugin) => {
