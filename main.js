@@ -583,14 +583,9 @@ module.exports = function(app, options) {
                   //var vmgTime = new Date(update.timestamp)
                   //vmgTimeSeconds = vmgTime.getTime() / 1000
                 }
-                /*//calculate if old or non existing
-                tws = getTrueWindSpeed(stw, aws, awa)
-                currentTwa = getTrueWindAngle(currentStw, currentTws, currentAws, currentAwa)
-                vmg = getVelocityMadeGood(stw, twa)
-                */
+
                 //@TODO add stale logic
 
-                currentVmg = getVelocityMadeGood(currentStw, currentTwa)
                 currentTwaQuadrant = calculateQuadrant(currentTwa)
 
               })
@@ -621,7 +616,6 @@ module.exports = function(app, options) {
 
         //@TODO: if wind angle not more acute than beatAngle or more obtuse than gybeAngles, interpolate between angles for lower and higher windIndex, and between these
         var polarSpeed, polarSpeedRatio
-        pushDelta(app, "performance.velocityMadeGood", currentVmg, plugin)
         var windAngleIndex = closestAngle(currentTwa, fullActivePolar[activePolar].windData[windIndex].angleData)
         if(windIndex == 0 || windIndex == activePolarWindArray.length){
           //if lowest or highest wind speed in table, interpolate only for wind angle
@@ -819,13 +813,7 @@ function getTrueWindAngle(speed, trueWindSpeed, apparentWindspeed, windAngle) {
   }
 }
 
-function getTrueWindSpeed(speed, windSpeed, windAngle) {
-  return Math.sqrt(
-    Math.pow(windSpeed, 2) +
-    Math.pow(speed, 2) -
-    2 * windSpeed * speed * Math.cos(windAngle)
-  )
-}
+
 
 function getVelocityMadeGood(stw, twa) {
   //app.debug("getVelocityMadeGood called")
