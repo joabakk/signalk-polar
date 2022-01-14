@@ -50,6 +50,7 @@ module.exports = function(app, options) {
     "navigation.speedOverGround"
   ]
   var currentVmg, currentRot, currentStw, currentAwa, currentTwa, currentAws, currentCog, currentSog, currentTws
+  var currentTwaQuadrant
 
 
   return {
@@ -552,7 +553,7 @@ module.exports = function(app, options) {
                   //awaTimeSeconds = awaTime.getTime() / 1000
                   currentAwa = pathValue.value
                 }
-                if (pathValue.path == "environment.wind.angleTrueGround") {
+                if (pathValue.path == "environment.wind.angleTrueWater") {
                   currentTwa = pathValue.value
                   //var twaTime = new Date(update.timestamp)
                   //twaTimeSeconds = twaTime.getTime() / 1000
@@ -588,8 +589,10 @@ module.exports = function(app, options) {
                 vmg = getVelocityMadeGood(stw, twa)
                 */
                 //@TODO add stale logic
-                currentTwa = getTrueWindAngle(currentStw, currentTws, currentAws, currentAwa)
+
                 currentVmg = getVelocityMadeGood(currentStw, currentTwa)
+                currentTwaQuadrant = calculateQuadrant(currentTwa)
+
               })
             }
           })
@@ -649,7 +652,7 @@ module.exports = function(app, options) {
           )
           polarSpeed = interpolate(
             currentTws,
-            ullActivePolar[activePolar].windData[windIndex].trueWindSpeed,
+            fullActivePolar[activePolar].windData[windIndex].trueWindSpeed,
             fullActivePolar[activePolar].windData[windIndex+1].trueWindSpeed,
             psLow,
             psHigh
@@ -876,6 +879,14 @@ function interpolate(x, xbottom, xtop, ybottom, ytop){
   var xdist = xtop - xbottom
   var ydist = ytop - ybottom;
   return (ybottom + (((x-xbottom) / xdist)) * ydist)
+}
+
+function calculateQuadrant(twa){
+  if(twa < 0){
+    twa+=Math.PI*2
+  }
+  var quad = Math.floor(twa/(Math.PI/2))+1
+  return quad
 }
 
 const getPolar = async (uuid, userDir, plugin) => {
