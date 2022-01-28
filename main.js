@@ -506,14 +506,7 @@ module.exports = function(app, options) {
           polarList.push(table.polarUuid)
         })
         if (options.static.length  == 1){
-          activePolar = options.static[0].polarUuid
-          options.activePolar = activePolar
-          app.debug('active Polar: ' + options.activePolar)
-          app.savePluginOptions(options, function(err, result) {
-            if (err) {
-              app.debug(err)
-            }
-          })
+          setActivePolar(options.static[0].polarUuid)
         }
       }
 
@@ -723,6 +716,17 @@ module.exports = function(app, options) {
         //getTarget(app, tws, twsInterval, twa, twaInterval, stw)
         //app.debug("sent to setInterval:" +  tws + " : " + twsInterval + " : " + Math.abs(twa) + " : " + twaInterval)
       }, 1000)
+
+      function setActivePolar(uuid){
+        activePolar = uuid
+        options.activePolar = activePolar
+        app.debug('active Polar: ' + options.activePolar)
+        app.savePluginOptions(options, function(err, result) {
+          if (err) {
+            app.debug(err)
+          }
+        })
+      }
     },
 
     registerWithRouter: function(router) {
@@ -762,6 +766,14 @@ module.exports = function(app, options) {
           deletePolarTable(uuid)
           res.redirect('back')
         })
+
+        router.post("/setActivePolar", (req, res) =>{
+          var uuid = req.query.uuid
+          app.debug("setting active polar " + uuid)
+          //@TODO: Add function
+          res.redirect('back')
+        })
+
 
 
     },
