@@ -39,6 +39,7 @@ module.exports = function(app, options) {
   }
   var allPolars = {}
   var polarList = []
+  var polarNames = []
   var activePolar
   const keyPaths = [
     "performance.velocityMadeGood", // if empty, populate from this plugin
@@ -59,18 +60,20 @@ module.exports = function(app, options) {
     description:
     "Signal K server plugin that stores and retrieves static and/or dynamic polar data",
     uiSchema: {
-      activePolar: { "ui:widget": "hidden" },
-      dynamic: {
-        items:{
-          polarUuid: { "ui:widget": "hidden" }
-        }
-      },
       static: {
         items: {
           polarUuid: { "ui:widget": "hidden" },
           csvTable: { "ui:widget": "textarea" }
         }
-      }
+      },
+      useDynamicPolar: { "ui:widget": "hidden" },
+      engine: { "ui:widget": "hidden" },
+      additional_info: { "ui:widget": "hidden" },
+      sqliteFile: { "ui:widget": "hidden" },
+      angleResolution: { "ui:widget": "hidden" },
+      twsInterval: { "ui:widget": "hidden" },
+      maxWind: { "ui:widget": "hidden" },
+      rateOfTurnLimit: { "ui:widget": "hidden" }
     },
     schema: {
       type: "object",
@@ -78,88 +81,11 @@ module.exports = function(app, options) {
       "A Signal K (node) plugin to maintain polar diagrams in a sqlite3 database",
       description: "",
       properties: {
-        useDynamicPolar: {
-          type: "boolean",
-          title: "Use dynamic polar diagram (may slow down server). First item will be active polar",
-          default: false
-        },
         activePolar: {
           type: "string",
-          title: "UUID of active polar table",
-        },
-        dynamic: {
-          type: "array",
-          title: "Dynamic polar from performance",
-          items: {
-            title: "",
-            type: "object",
-            required: ["engine", "sqliteFile"],
-            properties: {
-              engine: {
-                type: "string",
-                title:
-                "How is engine status monitored - stores to polar only when engine off",
-                default: "doNotStore",
-                enum: [
-                  "alwaysOff",
-                  "propulsion.*.revolutions",
-                  "propulsion.*.state",
-                  "doNotStore"
-                ],
-                enumNames: [
-                  "assume engine always off",
-                  "propulsion.*.revolutions > 0",
-                  "propulsion.*.state is not 'started'",
-                  "do not store dynamic polar"
-                ]
-              },
-              additional_info: {
-                type: "string",
-                title:
-                "replace * in 'propulsion.*.revolutions' or 'propulsion.*.state' with [ ]"
-              },
-              sqliteFile: {
-                type: "string",
-                title: "File for storing sqlite3 data, ",
-                default: "polarDatabase.db"
-              },
-              polarName: {
-                type: "string",
-                title: "Name of the polar diagram",
-                default: "dynamicPolar"
-              },
-              polarDescription: {
-                type: "string",
-                title: "Description of the polar diagram",
-                default: "Dynamic polar diagram from actual sailing"
-              },
-              polarUuid: {
-                type: "string",
-                title: "Main polar UUID"
-              },
-              angleResolution: {
-                type: "number",
-                title: "angle resolution in degrees",
-                default: 1
-              },
-              twsInterval: {
-                type: "number",
-                title: "wind speed resolution in m/s",
-                default: 4
-              },
-              maxWind: {
-                type: "number",
-                title: "max wind speed to record/display, in m/s",
-                default: 15
-              },
-              rateOfTurnLimit: {
-                type: "number",
-                title:
-                "Store in database if rate of turn is unavailable or less than [ ] deg/min (inertia gives false reading while turning vessel)",
-                default: 5
-              }
-            }
-          }
+          title: "Active polar table",
+          enum: polarList,
+          enumNames: polarNames
         },
         static: {
           type: "array",
@@ -226,6 +152,59 @@ module.exports = function(app, options) {
           type: "boolean",
           title: "Update all tables (enable after making changes)",
           default: false
+        },
+        useDynamicPolar: {
+          type: "boolean",
+          title: "Use dynamic polar diagram (may slow down server). Active polar will be updated"
+        },
+        engine: {
+          type: "string",
+          title:
+          "How is engine status monitored - stores to polar only when engine off",
+          default: "doNotStore",
+          enum: [
+            "alwaysOff",
+            "propulsion.*.revolutions",
+            "propulsion.*.state",
+            "doNotStore"
+          ],
+          enumNames: [
+            "assume engine always off",
+            "propulsion.*.revolutions > 0",
+            "propulsion.*.state is not 'started'",
+            "do not store dynamic polar"
+          ]
+        },
+        additional_info: {
+          type: "string",
+          title:
+          "replace * in 'propulsion.*.revolutions' or 'propulsion.*.state' with [ ]"
+        },
+        sqliteFile: {
+          type: "string",
+          title: "File for storing sqlite3 data, ",
+          default: "polarDatabase.db"
+        },
+        angleResolution: {
+          type: "number",
+          title: "angle resolution in degrees",
+          default: 1
+        },
+        twsInterval: {
+          type: "number",
+          title: "wind speed resolution in m/s",
+          default: 4
+        },
+        maxWind: {
+          type: "number",
+          title: "max wind speed to record/display, in m/s",
+          default: 15
+        },
+        rateOfTurnLimit: {
+          type: "number",
+          title:
+          "Store in database if rate of turn is unavailable or less than [ ] deg/min (inertia gives false reading while turning vessel)",
+          default: 5
         }
       }
     },
@@ -268,6 +247,7 @@ module.exports = function(app, options) {
               })
             }
             polarList.push(table.polarUuid)
+            polarNames.push(tableName)
             var description
             if (table.description) {
               description = table.description
@@ -431,13 +411,13 @@ module.exports = function(app, options) {
 
               var jsonFormat = {
                 [tableUuid]: {
-                "id": tableUuid,
-                "name": tableName,
-                "description": description,
-                "source": {
-                  "label": "signalk-polar"
-                },
-                "windData": windData
+                  "id": tableUuid,
+                  "name": tableName,
+                  "description": description,
+                  "source": {
+                    "label": "signalk-polar"
+                  },
+                  "windData": windData
                 }
               }
 
@@ -471,316 +451,320 @@ module.exports = function(app, options) {
         })
       }
 
+      /*
       if (options.useDynamicPolar){
-        var mainPolarUuid
-        if (options.dynamic[0].polarUuid) {
-          mainPolarUuid = options.dynamic[0].polarUuid
-          app.debug("Polar uuid exists: " + mainPolarUuid, typeof mainPolarUuid)
-        } else {
-          mainPolarUuid = uuidv4()
-          options.dynamic[0].polarUuid = mainPolarUuid
-          app.debug("Polar uuid does not exist, creating " + mainPolarUuid)
-          app.savePluginOptions(options, function(err, result) {
-            if (err) {
-              app.debug(err)
-            }
-          })
-        }
-
-        //handle deltas
-
-        //use the dynamic polar as active
-        activePolar = options.dynamic[0].polarUuid
-        polarList.push(mainPolarUuid)
-        options.activePolar = activePolar
-        app.debug('active Polar: ' + options.activePolar)
-        app.savePluginOptions(options, function(err, result) {
-          if (err) {
-            app.debug(err)
-          }
-        })
-      }
-
-      else if(options.static) {
-        options.static.forEach(table => {
-          polarList.push(table.polarUuid)
-        })
-        if (options.static.length  == 1){
-          setActivePolar(options.static[0].polarUuid)
-        }
-      }
-
-      let obj = {}
-      keyPaths.forEach(element => {
-        obj[element] = true
-      })
-
-      shouldStore = function(path) {
-        return typeof obj[path] != "undefined"
-      }
-
-      var handleDelta = function(delta, options){
-        if (delta.updates && delta.context === selfContext) {
-          delta.updates.forEach(update => {
-            //app.debug('update: ' + util.inspect(update))
-
-            if (
-              update.values &&
-              typeof update.$source != "undefined" &&
-              update.$source != "signalk-polar"
-            ) {
-              var points = update.values.reduce((acc, pathValue, options) => {
-                //app.debug('found ' + pathValue.path)
-                if (pathValue.path == "navigation.rateOfTurn") {
-                  //var rotTime = new Date(update.timestamp)
-                  //rotTimeSeconds = rotTime.getTime() / 1000 //need to convert to seconds for comparison
-                  currentRot = pathValue.value
-                }
-                if (pathValue.path == "navigation.speedThroughWater") {
-                  //var stwTime = new Date(update.timestamp)
-                  //stwTimeSeconds = stwTime.getTime() / 1000
-                  currentStw = pathValue.value
-                }
-                if (pathValue.path == "environment.wind.angleApparent") {
-                  //var awaTime = new Date(update.timestamp)
-                  //awaTimeSeconds = awaTime.getTime() / 1000
-                  currentAwa = pathValue.value
-                }
-                if (pathValue.path == "environment.wind.angleTrueWater") {
-                  currentTwa = pathValue.value
-                  //var twaTime = new Date(update.timestamp)
-                  //twaTimeSeconds = twaTime.getTime() / 1000
-                }
-                if (pathValue.path == "environment.wind.speedApparent") {
-                  //var awsTime = new Date(update.timestamp)
-                  //awsTimeSeconds = awsTime.getTime() / 1000
-                  currentAws = pathValue.value
-                }
-                if (pathValue.path == "environment.wind.speedTrue") {
-                  currentTws = pathValue.value
-                  //var twsTime = new Date(update.timestamp)
-                  //twsTimeSeconds = twsTime.getTime() / 1000
-                }
-                if (pathValue.path == "navigation.courseOverGroundTrue") {
-                  //var cogTime = new Date(update.timestamp)
-                  //cogTimeSeconds = cogTime.getTime() / 1000
-                  currentCog = pathValue.value
-                }
-                if (pathValue.path == "navigation.speedOverGround") {
-                  //var sogTime = new Date(update.timestamp)
-                  //sogTimeSeconds = sogTime.getTime() / 1000
-                  currentSog = pathValue.value
-                }
-                if (pathValue.path == "performance.velocityMadeGood") {
-                  currentVmg = pathValue.value
-                  //var vmgTime = new Date(update.timestamp)
-                  //vmgTimeSeconds = vmgTime.getTime() / 1000
-                }
-
-                //@TODO add stale logic
-
-                currentTwaQuadrant = calculateQuadrant(currentTwa)
-
-              })
-            }
-          })
-        }
-      }
-
-      app.signalk.on("delta", handleDelta)
-
-
-      var fullActivePolar = {}
-      getPolar(activePolar, userDir, plugin).then((full) => {
-        fullActivePolar = full
-      })
-
-
-      let pushInterval = setInterval(function() {
-        var beatAngle, beatSpeed, gybeAngle, gybeSpeed
-        var windIndex = 0 //@TODO search for right one
-        var activePolarWindArray = []
-        fullActivePolar[activePolar].windData.forEach(item => {
-          activePolarWindArray.push(item.trueWindSpeed)
-        })
-
-        var windIndex = closest(currentTws, activePolarWindArray)
-        //app.debug('currentTws: ' + currentTws + ' windIndex: ' + windIndex)
-
-        //@TODO: if wind angle not more acute than beatAngle or more obtuse than gybeAngles, interpolate between angles for lower and higher windIndex, and between these
-        var polarSpeed, polarSpeedRatio
-        var windAngleIndex = closestAngle(currentTwa, fullActivePolar[activePolar].windData[windIndex].angleData)
-        if(windIndex == 0 || windIndex == activePolarWindArray.length){
-          //if lowest or highest wind speed in table, interpolate only for wind angle
-          polarSpeed = interpolate(
-            currentTwa,
-            fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex][0],
-            fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex+1][0],
-            fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex][1],
-            fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex+1][1],
-          )
-          polarSpeedRatio = currentStw/polarSpeed
-          pushDelta(app, "performance.polarSpeed", polarSpeed, plugin)
-          pushDelta(app, "performance.polarSpeedRatio", polarSpeedRatio, plugin)
-        } else {
-          var psLow = interpolate(
-            currentTwa,
-            fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex][0],
-            fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex+1][0],
-            fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex][1],
-            fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex+1][1],
-          )
-          var psHigh = interpolate(
-            currentTwa,
-            fullActivePolar[activePolar].windData[windIndex+1].angleData[windAngleIndex][0],
-            fullActivePolar[activePolar].windData[windIndex+1].angleData[windAngleIndex+1][0],
-            fullActivePolar[activePolar].windData[windIndex+1].angleData[windAngleIndex][1],
-            fullActivePolar[activePolar].windData[windIndex+1].angleData[windAngleIndex+1][1],
-          )
-          polarSpeed = interpolate(
-            currentTws,
-            fullActivePolar[activePolar].windData[windIndex].trueWindSpeed,
-            fullActivePolar[activePolar].windData[windIndex+1].trueWindSpeed,
-            psLow,
-            psHigh
-          )
-          polarSpeedRatio = currentStw/polarSpeed
-          pushDelta(app, "performance.polarSpeed", polarSpeed, plugin)
-          pushDelta(app, "performance.polarSpeedRatio", polarSpeedRatio, plugin)
-        }
-        //console.log("windAngle: " + currentTwa + " betw " + fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex][0] + " and " + fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex+1][0])
-
-        if(fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][0]){
-          if(windIndex == 0 || windIndex == activePolarWindArray.length){
-            beatAngle = fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][0]
-          } else {
-            beatAngle = interpolate(
-              currentTws,
-              fullActivePolar[activePolar].windData[windIndex].trueWindSpeed,
-              fullActivePolar[activePolar].windData[windIndex+1].trueWindSpeed,
-              fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][0],
-              fullActivePolar[activePolar].windData[windIndex+1].optimalBeats[0][0],
-            )
-          }
-          pushDelta(app, "performance.beatAngle", beatAngle, plugin)
-        }
-        if(fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][1]){
-          if(windIndex == 0 || windIndex == activePolarWindArray.length){
-            beatSpeed = fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][1]
-          } else {
-            beatSpeed = interpolate(
-              currentTws,
-              fullActivePolar[activePolar].windData[windIndex].trueWindSpeed,
-              fullActivePolar[activePolar].windData[windIndex+1].trueWindSpeed,
-              beatSpeed = fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][1],
-              beatSpeed = fullActivePolar[activePolar].windData[windIndex+1].optimalBeats[0][1]
-            )
-          }
-          pushDelta(app, "performance.beatAngleTargetSpeed", beatSpeed, plugin)
-        }
-        if(fullActivePolar[activePolar].windData[windIndex].optimalGybes[0][0]){
-          if(windIndex == 0 || windIndex == activePolarWindArray.length){
-            gybeAngle = fullActivePolar[activePolar].windData[windIndex].optimalGybes[0][0]
-          } else {
-            gybeAngle = interpolate(
-              currentTws,
-              fullActivePolar[activePolar].windData[windIndex].trueWindSpeed,
-              fullActivePolar[activePolar].windData[windIndex+1].trueWindSpeed,
-              gybeAngle = fullActivePolar[activePolar].windData[windIndex].optimalGybes[0][0],
-              gybeAngle = fullActivePolar[activePolar].windData[windIndex+1].optimalGybes[0][0]
-            )
-          }
-          pushDelta(app, "performance.gybeAngle", gybeAngle, plugin)
-        }
-        if(fullActivePolar[activePolar].windData[windIndex].optimalGybes[0][1]){
-          if(windIndex == 0 || windIndex == activePolarWindArray.length){
-            gybeSpeed = fullActivePolar[activePolar].windData[windIndex].optimalGybes[0][1]
-          } else {
-            gybeSpeed = interpolate(
-              currentTws,
-              fullActivePolar[activePolar].windData[windIndex].trueWindSpeed,
-              fullActivePolar[activePolar].windData[windIndex+1].trueWindSpeed,
-              gybeSpeed = fullActivePolar[activePolar].windData[windIndex].optimalGybes[0][1],
-              gybeSpeed = fullActivePolar[activePolar].windData[windIndex+1].optimalGybes[0][1]
-            )
-          }
-
-          pushDelta(app, "performance.gybeAngleTargetSpeed", gybeSpeed, plugin)
-        }
-
-        if(windIndex == 0 || windIndex == activePolarWindArray.length){
-
-        }
-
-        //app.debug("tws: " + tws + " abs twa: " + Math.abs(twa) + " stw: " + stw)
-        //getTarget(app, tws, twsInterval, twa, twaInterval, stw)
-        //app.debug("sent to setInterval:" +  tws + " : " + twsInterval + " : " + Math.abs(twa) + " : " + twaInterval)
-      }, 1000)
-
-      function setActivePolar(uuid){
-        activePolar = uuid
-        options.activePolar = activePolar
-        app.debug('active Polar: ' + options.activePolar)
-        app.savePluginOptions(options, function(err, result) {
-          if (err) {
-            app.debug(err)
-          }
-        })
-      }
-    },
-
-    registerWithRouter: function(router) {
-
-        //@TODO: add put message to delete table
-
-        router.get("/polarTables", async(req, res) => {
-          res.contentType("application/json")
-          var polarsCombined = {}
-
-          const arr = await Promise.all(
-            polarList.map(item => {
-              return getPolar(item, userDir, plugin)
-            })
-          )
-          var results =  arr.reduce((a, b) => Object.assign(a, b), {})
-          var response = { polars: results }
-          res.send(response)
-        })
-
-        router.get("/polarTable", async (req, res) => {
-          res.contentType("application/json")
-          var uuid = req.query.uuid?req.query.uuid:activePolar
-          var response =  await getPolar(uuid, userDir, plugin)
-          res.send(response)
-        })
-
-        router.get("/listPolarTables", (req, res) => {
-          res.contentType("application/json")
-          app.debug(polarList)
-          res.send(polarList)
-        })
-
-        router.get("/deletePolarTable", (req, res) =>{
-          var uuid = req.query.uuid
-          app.debug("requested to delete " + uuid)
-          deletePolarTable(uuid)
-          res.redirect('back')
-        })
-
-        router.post("/setActivePolar", (req, res) =>{
-          var uuid = req.query.uuid
-          app.debug("setting active polar " + uuid)
-          //@TODO: Add function
-          res.redirect('back')
-        })
-
-
-
-    },
-    stop: function() {
-      //app.signalk.removeListener("delta", handleDelta)
-    }
+      var mainPolarUuid
+      if (options.dynamic[0].polarUuid) {
+      mainPolarUuid = options.dynamic[0].polarUuid
+      app.debug("Polar uuid exists: " + mainPolarUuid, typeof mainPolarUuid)
+    } else {
+    mainPolarUuid = uuidv4()
+    options.dynamic[0].polarUuid = mainPolarUuid
+    app.debug("Polar uuid does not exist, creating " + mainPolarUuid)
+    app.savePluginOptions(options, function(err, result) {
+    if (err) {
+    app.debug(err)
   }
+})
+}
+
+//handle deltas
+
+//use the dynamic polar as active
+activePolar = options.dynamic[0].polarUuid
+polarList.push(mainPolarUuid)
+options.activePolar = activePolar
+app.debug('active Polar: ' + options.activePolar)
+app.savePluginOptions(options, function(err, result) {
+if (err) {
+app.debug(err)
+}
+})
+}
+*/
+
+else if(options.static) {
+  options.static.forEach(table => {
+    polarList.push(table.polarUuid)
+    polarNames.push(table.polarName)
+  })
+  if (options.static.length  == 1){
+    setActivePolar(options.static[0].polarUuid)
+  }
+}
+
+let obj = {}
+keyPaths.forEach(element => {
+  obj[element] = true
+})
+
+shouldStore = function(path) {
+  return typeof obj[path] != "undefined"
+}
+
+var handleDelta = function(delta, options){
+  if (delta.updates && delta.context === selfContext) {
+    delta.updates.forEach(update => {
+      //app.debug('update: ' + util.inspect(update))
+
+      if (
+        update.values &&
+        typeof update.$source != "undefined" &&
+        update.$source != "signalk-polar"
+      ) {
+        var points = update.values.reduce((acc, pathValue, options) => {
+          //app.debug('found ' + pathValue.path)
+          if (pathValue.path == "navigation.rateOfTurn") {
+            //var rotTime = new Date(update.timestamp)
+            //rotTimeSeconds = rotTime.getTime() / 1000 //need to convert to seconds for comparison
+            currentRot = pathValue.value
+          }
+          if (pathValue.path == "navigation.speedThroughWater") {
+            //var stwTime = new Date(update.timestamp)
+            //stwTimeSeconds = stwTime.getTime() / 1000
+            currentStw = pathValue.value
+          }
+          if (pathValue.path == "environment.wind.angleApparent") {
+            //var awaTime = new Date(update.timestamp)
+            //awaTimeSeconds = awaTime.getTime() / 1000
+            currentAwa = pathValue.value
+          }
+          if (pathValue.path == "environment.wind.angleTrueWater") {
+            currentTwa = pathValue.value
+            //var twaTime = new Date(update.timestamp)
+            //twaTimeSeconds = twaTime.getTime() / 1000
+          }
+          if (pathValue.path == "environment.wind.speedApparent") {
+            //var awsTime = new Date(update.timestamp)
+            //awsTimeSeconds = awsTime.getTime() / 1000
+            currentAws = pathValue.value
+          }
+          if (pathValue.path == "environment.wind.speedTrue") {
+            currentTws = pathValue.value
+            //var twsTime = new Date(update.timestamp)
+            //twsTimeSeconds = twsTime.getTime() / 1000
+          }
+          if (pathValue.path == "navigation.courseOverGroundTrue") {
+            //var cogTime = new Date(update.timestamp)
+            //cogTimeSeconds = cogTime.getTime() / 1000
+            currentCog = pathValue.value
+          }
+          if (pathValue.path == "navigation.speedOverGround") {
+            //var sogTime = new Date(update.timestamp)
+            //sogTimeSeconds = sogTime.getTime() / 1000
+            currentSog = pathValue.value
+          }
+          if (pathValue.path == "performance.velocityMadeGood") {
+            currentVmg = pathValue.value
+            //var vmgTime = new Date(update.timestamp)
+            //vmgTimeSeconds = vmgTime.getTime() / 1000
+          }
+
+          //@TODO add stale logic
+
+          currentTwaQuadrant = calculateQuadrant(currentTwa)
+
+        })
+      }
+    })
+  }
+}
+
+app.signalk.on("delta", handleDelta)
+
+
+var fullActivePolar = {}
+getPolar(activePolar, userDir, plugin).then((full) => {
+  fullActivePolar = full
+})
+
+
+let pushInterval = setInterval(function() {
+  var beatAngle, beatSpeed, gybeAngle, gybeSpeed
+  var windIndex = 0 //@TODO search for right one
+  var activePolarWindArray = []
+  fullActivePolar[activePolar].windData.forEach(item => {
+    activePolarWindArray.push(item.trueWindSpeed)
+  })
+
+  var windIndex = closest(currentTws, activePolarWindArray)
+  //app.debug('currentTws: ' + currentTws + ' windIndex: ' + windIndex)
+
+  //@TODO: if wind angle not more acute than beatAngle or more obtuse than gybeAngles, interpolate between angles for lower and higher windIndex, and between these
+  var polarSpeed, polarSpeedRatio
+  var windAngleIndex = closestAngle(currentTwa, fullActivePolar[activePolar].windData[windIndex].angleData)
+  if(windIndex == 0 || windIndex == activePolarWindArray.length){
+    //if lowest or highest wind speed in table, interpolate only for wind angle
+    polarSpeed = interpolate(
+      currentTwa,
+      fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex][0],
+      fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex+1][0],
+      fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex][1],
+      fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex+1][1],
+    )
+    polarSpeedRatio = currentStw/polarSpeed
+    pushDelta(app, "performance.polarSpeed", polarSpeed, plugin)
+    pushDelta(app, "performance.polarSpeedRatio", polarSpeedRatio, plugin)
+  } else {
+    var psLow = interpolate(
+      currentTwa,
+      fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex][0],
+      fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex+1][0],
+      fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex][1],
+      fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex+1][1],
+    )
+    var psHigh = interpolate(
+      currentTwa,
+      fullActivePolar[activePolar].windData[windIndex+1].angleData[windAngleIndex][0],
+      fullActivePolar[activePolar].windData[windIndex+1].angleData[windAngleIndex+1][0],
+      fullActivePolar[activePolar].windData[windIndex+1].angleData[windAngleIndex][1],
+      fullActivePolar[activePolar].windData[windIndex+1].angleData[windAngleIndex+1][1],
+    )
+    polarSpeed = interpolate(
+      currentTws,
+      fullActivePolar[activePolar].windData[windIndex].trueWindSpeed,
+      fullActivePolar[activePolar].windData[windIndex+1].trueWindSpeed,
+      psLow,
+      psHigh
+    )
+    polarSpeedRatio = currentStw/polarSpeed
+    pushDelta(app, "performance.polarSpeed", polarSpeed, plugin)
+    pushDelta(app, "performance.polarSpeedRatio", polarSpeedRatio, plugin)
+  }
+  //console.log("windAngle: " + currentTwa + " betw " + fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex][0] + " and " + fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex+1][0])
+
+  if(fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][0]){
+    if(windIndex == 0 || windIndex == activePolarWindArray.length){
+      beatAngle = fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][0]
+    } else {
+      beatAngle = interpolate(
+        currentTws,
+        fullActivePolar[activePolar].windData[windIndex].trueWindSpeed,
+        fullActivePolar[activePolar].windData[windIndex+1].trueWindSpeed,
+        fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][0],
+        fullActivePolar[activePolar].windData[windIndex+1].optimalBeats[0][0],
+      )
+    }
+    pushDelta(app, "performance.beatAngle", beatAngle, plugin)
+  }
+  if(fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][1]){
+    if(windIndex == 0 || windIndex == activePolarWindArray.length){
+      beatSpeed = fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][1]
+    } else {
+      beatSpeed = interpolate(
+        currentTws,
+        fullActivePolar[activePolar].windData[windIndex].trueWindSpeed,
+        fullActivePolar[activePolar].windData[windIndex+1].trueWindSpeed,
+        beatSpeed = fullActivePolar[activePolar].windData[windIndex].optimalBeats[0][1],
+        beatSpeed = fullActivePolar[activePolar].windData[windIndex+1].optimalBeats[0][1]
+      )
+    }
+    pushDelta(app, "performance.beatAngleTargetSpeed", beatSpeed, plugin)
+  }
+  if(fullActivePolar[activePolar].windData[windIndex].optimalGybes[0][0]){
+    if(windIndex == 0 || windIndex == activePolarWindArray.length){
+      gybeAngle = fullActivePolar[activePolar].windData[windIndex].optimalGybes[0][0]
+    } else {
+      gybeAngle = interpolate(
+        currentTws,
+        fullActivePolar[activePolar].windData[windIndex].trueWindSpeed,
+        fullActivePolar[activePolar].windData[windIndex+1].trueWindSpeed,
+        gybeAngle = fullActivePolar[activePolar].windData[windIndex].optimalGybes[0][0],
+        gybeAngle = fullActivePolar[activePolar].windData[windIndex+1].optimalGybes[0][0]
+      )
+    }
+    pushDelta(app, "performance.gybeAngle", gybeAngle, plugin)
+  }
+  if(fullActivePolar[activePolar].windData[windIndex].optimalGybes[0][1]){
+    if(windIndex == 0 || windIndex == activePolarWindArray.length){
+      gybeSpeed = fullActivePolar[activePolar].windData[windIndex].optimalGybes[0][1]
+    } else {
+      gybeSpeed = interpolate(
+        currentTws,
+        fullActivePolar[activePolar].windData[windIndex].trueWindSpeed,
+        fullActivePolar[activePolar].windData[windIndex+1].trueWindSpeed,
+        gybeSpeed = fullActivePolar[activePolar].windData[windIndex].optimalGybes[0][1],
+        gybeSpeed = fullActivePolar[activePolar].windData[windIndex+1].optimalGybes[0][1]
+      )
+    }
+
+    pushDelta(app, "performance.gybeAngleTargetSpeed", gybeSpeed, plugin)
+  }
+
+  if(windIndex == 0 || windIndex == activePolarWindArray.length){
+
+  }
+
+  //app.debug("tws: " + tws + " abs twa: " + Math.abs(twa) + " stw: " + stw)
+  //getTarget(app, tws, twsInterval, twa, twaInterval, stw)
+  //app.debug("sent to setInterval:" +  tws + " : " + twsInterval + " : " + Math.abs(twa) + " : " + twaInterval)
+}, 1000)
+
+function setActivePolar(uuid){
+  activePolar = uuid
+  options.activePolar = activePolar
+  app.debug('active Polar: ' + options.activePolar)
+  app.savePluginOptions(options, function(err, result) {
+    if (err) {
+      app.debug(err)
+    }
+  })
+}
+},
+
+registerWithRouter: function(router) {
+
+  //@TODO: add put message to delete table
+
+  router.get("/polarTables", async(req, res) => {
+    res.contentType("application/json")
+    var polarsCombined = {}
+
+    const arr = await Promise.all(
+      polarList.map(item => {
+        return getPolar(item, userDir, plugin)
+      })
+    )
+    var results =  arr.reduce((a, b) => Object.assign(a, b), {})
+    var response = { polars: results }
+    res.send(response)
+  })
+
+  router.get("/polarTable", async (req, res) => {
+    res.contentType("application/json")
+    var uuid = req.query.uuid?req.query.uuid:activePolar
+    var response =  await getPolar(uuid, userDir, plugin)
+    res.send(response)
+  })
+
+  router.get("/listPolarTables", (req, res) => {
+    res.contentType("application/json")
+    app.debug(polarList)
+    res.send(polarList)
+  })
+
+  router.get("/deletePolarTable", (req, res) =>{
+    var uuid = req.query.uuid
+    app.debug("requested to delete " + uuid)
+    deletePolarTable(uuid)
+    res.redirect('back')
+  })
+
+  router.post("/setActivePolar", (req, res) =>{
+    var uuid = req.query.uuid
+    app.debug("setting active polar " + uuid)
+    //@TODO: Add function
+    res.redirect('back')
+  })
+
+
+
+},
+stop: function() {
+  app.signalk.removeListener("delta", handleDelta)
+  polarList = polarNames = []
+}
+}
 
 }
 module.exports.app = "app"
@@ -803,26 +787,26 @@ function getTrueWindAngle(speed, trueWindSpeed, apparentWindspeed, windAngle) {
     return Math.PI
   } else if (cosAlpha > 1 || cosAlpha < -1) {
     /*app.debug(
-      "invalid triangle aws: " +
-      apparentWindspeed +
-      " tws: " +
-      trueWindSpeed +
-      " bsp: " +
-      speed
-    )*/
-    return null
-  } else {
-    var calc
-    if (windAngle >= 0 && windAngle <= Math.PI) {
-      //Starboard
-      calc = Math.acos(cosAlpha)
-    } else if (windAngle < 0 && windAngle > -Math.PI) {
-      //Port
-      calc = -Math.acos(cosAlpha)
-    }
-    //app.debug("true wind angle: " + calc)
-    return calc
+    "invalid triangle aws: " +
+    apparentWindspeed +
+    " tws: " +
+    trueWindSpeed +
+    " bsp: " +
+    speed
+  )*/
+  return null
+} else {
+  var calc
+  if (windAngle >= 0 && windAngle <= Math.PI) {
+    //Starboard
+    calc = Math.acos(cosAlpha)
+  } else if (windAngle < 0 && windAngle > -Math.PI) {
+    //Port
+    calc = -Math.acos(cosAlpha)
   }
+  //app.debug("true wind angle: " + calc)
+  return calc
+}
 }
 
 
