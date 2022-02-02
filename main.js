@@ -60,7 +60,7 @@ module.exports = function(app, options) {
     description:
     "Signal K server plugin that stores and retrieves static and/or dynamic polar data",
     uiSchema: {
-      static: {
+      entered: {
         items: {
           polarUuid: { "ui:widget": "hidden" },
           csvTable: { "ui:widget": "textarea" }
@@ -87,7 +87,7 @@ module.exports = function(app, options) {
           enum: polarList,
           enumNames: polarNames
         },
-        static: {
+        entered: {
           type: "array",
           title: "Static user input polars",
           items: {
@@ -228,9 +228,9 @@ module.exports = function(app, options) {
 
       if (options.updateTables){
         //update tables and JSON files
-        if (options.static && options.static.length > 0) {
+        if (options.entered && options.entered.length > 0) {
           var counter = 0
-          options.static.forEach(table => {
+          options.entered.forEach(table => {
             var tableName = table.polarName.replace(/ /gi, "_")
             var tableUuid
             if (table.polarUuid) {
@@ -238,7 +238,7 @@ module.exports = function(app, options) {
               //app.debug("Polar uuid exists: '" + tableUuid + "'", typeof(tableUuid))
             } else {
               tableUuid = uuidv4()
-              options.static[counter].polarUuid = tableUuid
+              options.entered[counter].polarUuid = tableUuid
               app.debug("Polar uuid does not exist, creating '" + tableUuid + "'")
               app.savePluginOptions(options, function(err, result) {
                 if (err) {
@@ -289,7 +289,7 @@ module.exports = function(app, options) {
               }
               //app.debug(csvTable)
 
-              options.static[counter].csvTable = csvTable
+              options.entered[counter].csvTable = csvTable
 
               app.savePluginOptions(options, function(err, result) {
                 if (err) {
@@ -483,13 +483,13 @@ app.debug(err)
 }
 */
 
-else if(options.static) {
-  options.static.forEach(table => {
+else if(options.entered) {
+  options.entered.forEach(table => {
     polarList.push(table.polarUuid)
     polarNames.push(table.polarName)
   })
-  if (options.static.length  == 1){
-    setActivePolar(options.static[0].polarUuid)
+  if (options.entered.length  == 1){
+    setActivePolar(options.entered[0].polarUuid)
   }
 }
 
