@@ -15,7 +15,7 @@ function getVesselName(){
       vesselName = await response.json();
       return vesselName
     } catch (e) {
-      console.log("Error fetching boat name")
+      //console.log("Error fetching boat name")
     }
   })()
   return vesselName
@@ -24,34 +24,45 @@ function getVesselName(){
 
 function getTables(err, response){ // get user entered polars
   $.getJSON("/plugins/signalk-polar/polarTables", function(json) {
-    json.polars.forEach(function(polar){
-      tableIndexMax ++
-      polar = Object.values(polar)[0]
-      var tableNameMain = polar.name
-      tableOverview.push(tableNameMain)
-      var tableDescription = polar.description
-      console.log(tableNameMain)
-      polar.polarData.forEach(function(entry){//for each wind speed
-        var windSpeed = Math.abs(entry['trueWindSpeed']);
-        var tableName = tableNameMain + "_" + windSpeed
-        const polarArray = []
-        var windAngles = entry.trueWindAngles
-        var boatSpeeds = entry.polarSpeeds
-        for (index = 0; index < windAngles.length; ++index) {
-          tableData[tableName] = polarArray
-          var windDeg = windAngles[index]/Math.PI*180
-          var speedKnots
-          if(boatSpeeds[index]==null){
-            speedKnots = null
+    var polars= Object.entries(Object.values(json.polars))
+    console.log(polars)
+    polars.forEach((polar)=> {
+      console.log(polar[1])
+
+        tableIndexMax ++
+
+        var tableNameMain = polar[1].name
+        tableOverview.push(tableNameMain)
+        var tableDescription = polar[1].description
+        console.log(tableNameMain)
+        polar[1].windData.forEach(function(entry){//for each wind speed
+          console.log(entry)
+          var windSpeed = Math.abs(entry['trueWindSpeed']);
+          var tableName = tableNameMain + "_" + windSpeed
+          const polarArray = []
+          var windAngles = entry.angleData.map(function(x) {
+            return x[0];
+          });
+          console.log(windAngles)
+          var boatSpeeds = entry.angleData.map(function(x) {
+            return x[1];
+          });
+          for (index = 0; index < windAngles.length; ++index) {
+            tableData[tableName] = polarArray
+            var windDeg = windAngles[index]/Math.PI*180
+            var speedKnots
+            if(boatSpeeds[index]==null){
+              speedKnots = null
+            }
+            else {
+              speedKnots = boatSpeeds[index]/1852*3600
+            }
+            var item = [windDeg, speedKnots]
+            polarArray.push(item)
           }
-          else {
-            speedKnots = boatSpeeds[index]/1852*3600
-          }
-          var item = [windDeg, speedKnots]
-          polarArray.push(item)
-        }
-      })
+        })
     })
+
   })
 
 
@@ -86,9 +97,9 @@ function getWind() {
       var response = await fetch("/signalk/v1/api/vessels/self/environment/wind/speedOverGround");
       windSpeedTemp = await response.json();
       windSpeed = parseFloat(windSpeedTemp.value)
-      console.log("wind speed: " + windSpeed)
+      //console.log("wind speed: " + windSpeed)
     } catch (e) {
-      console.log("Error fetching wind speed")
+      //console.log("Error fetching wind speed")
     }
   })()
   return windSpeed;
@@ -160,7 +171,7 @@ $(function () {
                 var x = await response.json()
                 var y = parseFloat(x.value)
                 tackAngle = Math.abs(y/Math.PI*180);
-                console.log("tackAngle " + tackAngle)
+                //console.log("tackAngle " + tackAngle)
                 chart.xAxis[0].addPlotLine({
                   color: 'red', // Color value
                   dashStyle: 'shortdashdot', // Style of the plot line. Default to solid
@@ -188,7 +199,7 @@ $(function () {
                 var x = await response.json()
                 var y = parseFloat(x.value)
                 reachAngle = Math.abs(y/Math.PI*180);
-                console.log("reachAngle " + reachAngle)
+                //console.log("reachAngle " + reachAngle)
                 chart.xAxis[0].addPlotLine({
                   color: 'red', // Color value
                   dashStyle: 'shortdashdot', // Style of the plot line. Default to solid
@@ -214,7 +225,7 @@ $(function () {
 
               }
               catch (e) {
-                console.log("Error fetching beat and gybe angles")
+                //console.log("Error fetching beat and gybe angles")
               }
 
 
@@ -232,7 +243,7 @@ $(function () {
               //alert(subTitle);
               chart.setTitle(null, {text: subTitle});
             } catch (e) {
-              console.log("Error fetching wind speed")
+              //console.log("Error fetching wind speed")
             }
 
             (async() => {
@@ -245,11 +256,11 @@ $(function () {
                 var yf = await response.json()
                 var y = parseFloat(yf.value)
                 var yKnots = y/1852*3600;
-                console.log("current dot:" + xDeg + " " + yKnots);
+                //console.log("current dot:" + xDeg + " " + yKnots);
                 series.addPoint([xDeg, yKnots], true, true);
 
               } catch (e) {
-                console.log("Error fetching wind angle and boat speed")
+                //console.log("Error fetching wind angle and boat speed")
               }
             })();
 
