@@ -583,9 +583,7 @@ getPolar(activePolar, userDir, plugin).then((full) => {
   fullActivePolar = full
 })
 
-console.log("active polar: " + activePolar)
 if(activePolar != "none" && activePolar != undefined) {
-  console.log("active polar: " + activePolar)
   let pushInterval = setInterval(function() {
     var beatAngle, beatSpeed, gybeAngle, gybeSpeed
     var windIndex = 0 //@TODO search for right one
@@ -593,8 +591,6 @@ if(activePolar != "none" && activePolar != undefined) {
     fullActivePolar[activePolar].windData.forEach(item => {
       activePolarWindArray.push(item.trueWindSpeed)
     })
-    console.log ('activePolarWindArrays: [0]=' + activePolarWindArray[0] + ' [1]=' + activePolarWindArray[1] + ' [2]=' + activePolarWindArray[2] + ' [3]=' + activePolarWindArray[3])
-    var windIndex = closestTws(currentTws, activePolarWindArray)
     //console.log('currentTws: ' + currentTws + ' windIndex: ' + windIndex + ' windArray: ' + activePolarWindArray[windIndex])
 
     //@TODO: if wind angle not more acute than beatAngle or more obtuse than gybeAngles, interpolate between angles for lower and higher windIndex, and between these
