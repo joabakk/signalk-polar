@@ -583,9 +583,7 @@ getPolar(activePolar, userDir, plugin).then((full) => {
   fullActivePolar = full
 })
 
-
 if(activePolar != "none" && activePolar != undefined) {
-  console.log("active polar: " + activePolar)
   let pushInterval = setInterval(function() {
     var beatAngle, beatSpeed, gybeAngle, gybeSpeed
     var windIndex = 0 //@TODO search for right one
@@ -593,15 +591,13 @@ if(activePolar != "none" && activePolar != undefined) {
     fullActivePolar[activePolar].windData.forEach(item => {
       activePolarWindArray.push(item.trueWindSpeed)
     })
-
-    var windIndex = closest(currentTws, activePolarWindArray)
-    //app.debug('currentTws: ' + currentTws + ' windIndex: ' + windIndex)
+    //console.log('currentTws: ' + currentTws + ' windIndex: ' + windIndex + ' windArray: ' + activePolarWindArray[windIndex])
 
     //@TODO: if wind angle not more acute than beatAngle or more obtuse than gybeAngles, interpolate between angles for lower and higher windIndex, and between these
     var polarSpeed, polarSpeedRatio
     var windAngleIndex = closestAngle(currentTwa, fullActivePolar[activePolar].windData[windIndex].angleData)
-    if(windIndex == 0 || windIndex == activePolarWindArray.length){
-      //if lowest or highest wind speed in table, interpolate only for wind angle
+    if(windIndex == activePolarWindArray.length){
+      //if above highest wind speed in table, interpolate only for wind angle
       polarSpeed = interpolate(
         currentTwa,
         fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex][0],
@@ -612,25 +608,46 @@ if(activePolar != "none" && activePolar != undefined) {
       polarSpeedRatio = currentStw/polarSpeed
       pushDelta(app, "performance.polarSpeed", polarSpeed, plugin)
       pushDelta(app, "performance.polarSpeedRatio", polarSpeedRatio, plugin)
-    } else {
-      var psLow = interpolate(
+    }
+      else if (windIndex == 0){
+        // if below lowest wind spped in table interpolate between 0 and tws
+        var psLow = 0
+        var psHigh = interpolate(
         currentTwa,
         fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex][0],
         fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex+1][0],
         fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex][1],
         fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex+1][1],
       )
+      polarSpeed = interpolate(
+        currentTws,
+        0,
+        fullActivePolar[activePolar].windData[windIndex].trueWindSpeed,
+        psLow,
+        psHigh
+      )
+      polarSpeedRatio = currentStw/polarSpeed
+      pushDelta(app, "performance.polarSpeed", polarSpeed, plugin)
+      pushDelta(app, "performance.polarSpeedRatio", polarSpeedRatio, plugin)
+    } else {
+      var psLow = interpolate(
+        currentTwa,
+        fullActivePolar[activePolar].windData[windIndex-1].angleData[windAngleIndex][0],
+        fullActivePolar[activePolar].windData[windIndex-1].angleData[windAngleIndex+1][0],
+        fullActivePolar[activePolar].windData[windIndex-1].angleData[windAngleIndex][1],
+        fullActivePolar[activePolar].windData[windIndex-1].angleData[windAngleIndex+1][1],
+      )
       var psHigh = interpolate(
         currentTwa,
-        fullActivePolar[activePolar].windData[windIndex+1].angleData[windAngleIndex][0],
-        fullActivePolar[activePolar].windData[windIndex+1].angleData[windAngleIndex+1][0],
-        fullActivePolar[activePolar].windData[windIndex+1].angleData[windAngleIndex][1],
-        fullActivePolar[activePolar].windData[windIndex+1].angleData[windAngleIndex+1][1],
+        fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex][0],
+        fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex+1][0],
+        fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex][1],
+        fullActivePolar[activePolar].windData[windIndex].angleData[windAngleIndex+1][1],
       )
       polarSpeed = interpolate(
         currentTws,
+        fullActivePolar[activePolar].windData[windIndex-1].trueWindSpeed,
         fullActivePolar[activePolar].windData[windIndex].trueWindSpeed,
-        fullActivePolar[activePolar].windData[windIndex+1].trueWindSpeed,
         psLow,
         psHigh
       )
@@ -840,6 +857,26 @@ function pushDelta(app, path, value, plugin) {
   return
 }
 
+function closestTws(num,arr) {
+  //this should set the windIndex to a value if a tws falls between values in the polar tws table
+  // ie 0-6 kts use 6 kts column, 6.00001 to 8 kts use the 8 kts column...
+  var lowTws = arr[0],
+  index = 0;
+  if (num<=lowTws){
+    return 0;
+  } else if (num >=arr[arr.length]){
+    return arr.length;
+  } else {
+    for (var val = 0; val < arr.length -1; val++) {
+      if (num > arr[val] && num <= arr[val+1]) {
+        //console.log('tws:' + num + ' Test = ' + val +' above/below: ' + arr[val], arr[val+1])
+        index = val+1;
+      }
+    }
+    return index;
+  }
+}
+
 function closest(num, arr) {
   var curr = arr[0],
   diff = num - curr,
@@ -850,7 +887,7 @@ function closest(num, arr) {
     return arr.length
   } else {
     for (var val = 0; val < arr.length-1; val++) {
-      //app.debug(val + ' comparing ' + num + ' to ' + arr[val])
+      //console.log(val + ' comparing ' + num + ' to ' + arr[val])
       let newdiff = num - arr[val];
       if (newdiff < diff && newdiff > 0) {
         diff = newdiff;

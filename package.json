@@ -4,11 +4,11 @@
     "baconjs": "^2.0.13",
     "csv": "^5.5.3",
     "uuid": "^3.4.0",
-    "better-sqlite3": "^7.4.6",
+    "better-sqlite3": "^7.6.2",
     "highcharts": "^9.3.3",
     "express": "^4.18.1",
     "lodash": "^4.17.21",
-    "snyk": "^1.794.0"
+    "snyk": "^1.1006.0"
   },
   "description": "Signal K server plugin to store and retrieve polar data with sqlite3 db",
   "devDependencies": {
@@ -48,6 +48,6 @@
     "snyk-protect": "snyk protect",
     "prepublish": "npm run snyk-protect"
   },
-  "version": "3.0.0",
+  "version": "3.0.1",
   "snyk": true
 }
