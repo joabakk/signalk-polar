@@ -4,7 +4,7 @@
     "baconjs": "^2.0.13",
     "csv": "^5.5.3",
     "uuid": "^3.4.0",
-    "better-sqlite3": "^7.4.6",
+    "better-sqlite3": "^7.6.2",
     "highcharts": "^9.3.3",
     "express": "^4.17.2",
     "lodash": "^4.17.21",
