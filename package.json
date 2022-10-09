@@ -48,6 +48,10 @@
     "snyk-protect": "snyk protect",
     "prepublish": "npm run snyk-protect"
   },
+  "signalk": {
+    "appIcon": "./assets/icons/diagram.png",
+    "displayName": "signalk-polar"
+  },
   "version": "3.0.1",
   "snyk": true
 }
