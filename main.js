@@ -514,6 +514,9 @@ var handleDelta = function(delta, options){
         typeof update.$source != "undefined" &&
         update.$source != "signalk-polar"
       ) {
+        if (!update.values.length) {
+          return;
+        }
         var points = update.values.reduce((acc, pathValue, options) => {
           //app.debug('found ' + pathValue.path)
           if (pathValue.path == "navigation.rateOfTurn") {
