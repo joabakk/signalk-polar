@@ -25,6 +25,7 @@ const path = require("path")
 
 var csvList = ["ignore"]//"Set" for unique
 
+
 module.exports = function(app, options) {
   "use strict"
   var client
@@ -53,7 +54,6 @@ module.exports = function(app, options) {
   var currentVmg, currentRot, currentStw, currentAwa, currentTwa, currentAws, currentCog, currentSog, currentTws
   var currentTwaQuadrant
   var unsubscribes = []
-
 
   return {
     id: "signalk-polar",
@@ -504,77 +504,51 @@ shouldStore = function(path) {
   return typeof obj[path] != "undefined"
 }
 
-var handleDelta = function(delta, options){
-  if (delta.updates && delta.context === selfContext) {
-    delta.updates.forEach(update => {
-      //app.debug('update: ' + util.inspect(update))
 
-      if (
-        update.values &&
-        typeof update.$source != "undefined" &&
-        update.$source != "signalk-polar"
-      ) {
-        var points = update.values.reduce((acc, pathValue, options) => {
-          //app.debug('found ' + pathValue.path)
-          if (pathValue.path == "navigation.rateOfTurn") {
-            //var rotTime = new Date(update.timestamp)
-            //rotTimeSeconds = rotTime.getTime() / 1000 //need to convert to seconds for comparison
-            currentRot = pathValue.value
-          }
-          if (pathValue.path == "navigation.speedThroughWater") {
-            //var stwTime = new Date(update.timestamp)
-            //stwTimeSeconds = stwTime.getTime() / 1000
-            currentStw = pathValue.value
-          }
-          if (pathValue.path == "environment.wind.angleApparent") {
-            //var awaTime = new Date(update.timestamp)
-            //awaTimeSeconds = awaTime.getTime() / 1000
-            currentAwa = pathValue.value
-          }
-          if (pathValue.path == "environment.wind.angleTrueWater") {
-            currentTwa = pathValue.value
-            //var twaTime = new Date(update.timestamp)
-            //twaTimeSeconds = twaTime.getTime() / 1000
-          }
-          if (pathValue.path == "environment.wind.speedApparent") {
-            //var awsTime = new Date(update.timestamp)
-            //awsTimeSeconds = awsTime.getTime() / 1000
-            currentAws = pathValue.value
-          }
-          if (pathValue.path == "environment.wind.speedTrue") {
-            currentTws = pathValue.value
-            //var twsTime = new Date(update.timestamp)
-            //twsTimeSeconds = twsTime.getTime() / 1000
-          }
-          if (pathValue.path == "navigation.courseOverGroundTrue") {
-            //var cogTime = new Date(update.timestamp)
-            //cogTimeSeconds = cogTime.getTime() / 1000
-            currentCog = pathValue.value
-          }
-          if (pathValue.path == "navigation.speedOverGround") {
-            //var sogTime = new Date(update.timestamp)
-            //sogTimeSeconds = sogTime.getTime() / 1000
-            currentSog = pathValue.value
-          }
-          if (pathValue.path == "performance.velocityMadeGood") {
-            currentVmg = pathValue.value
-            //var vmgTime = new Date(update.timestamp)
-            //vmgTimeSeconds = vmgTime.getTime() / 1000
-          }
+app.streambundle
+    .getSelfStream('navigation.rateOfTurn')
+    .forEach(rot => {currentRot = rot; //app.debug('rot:',currentRot)
+      });
 
-          //@TODO add stale logic
+app.streambundle
+    .getSelfStream('navigation.speedThroughWater')
+    .forEach(stw => {currentStw = stw; //app.debug('stw:',currentStw)
+      });
 
-          currentTwaQuadrant = calculateQuadrant(currentTwa)
+app.streambundle
+    .getSelfStream('environment.wind.angleApparent')
+    .forEach(awa => {currentAwa = awa; //app.debug('awa:',currentAwa)
+      });
 
-        })
-      }
-    })
-  }
-}
+app.streambundle
+    .getSelfStream('environment.wind.angleTrueWater')
+    .forEach(twa => {currentTwa = twa; //app.debug('twa:',currentTwa);
+      currentTwaQuadrant = calculateQuadrant(currentTwa)
+      });
 
-app.signalk.on("delta", handleDelta)
-unsubscribes.push(() => {
-        app.signalk.removeListener('delta', handleDelta);
+app.streambundle
+    .getSelfStream('environment.wind.speedApparent')
+    .forEach(aws => {currentAws = aws; //app.debug('aws:',currentAws)
+      });
+
+app.streambundle
+    .getSelfStream('environment.wind.speedTrue')
+    .forEach(tws => {currentTws = tws; //app.debug('tws:',currentTws)
+      });
+
+app.streambundle
+    .getSelfStream('navigation.courseOverGroundTrue')
+    .forEach(cog => {currentCog = cog; //app.debug('cog:',currentCog)
+      });
+
+app.streambundle
+    .getSelfStream('navigation.speedOverGround')
+    .forEach(sog => {currentSog = sog; //app.debug('sog:',currentSog)
+      });
+
+app.streambundle
+    .getSelfStream('performance.velocityMadeGood')
+    .forEach(vmg => {currentVmg = vmg; //app.debug('vmg:',currentVmg)
       });
 
 
@@ -583,15 +557,17 @@ getPolar(activePolar, userDir, plugin).then((full) => {
   fullActivePolar = full
 })
 
+
+
 if(activePolar != "none" && activePolar != undefined) {
-  let pushInterval = setInterval(function() {
+    let pushInterval = setInterval(function() {
     var beatAngle, beatSpeed, gybeAngle, gybeSpeed
-    var windIndex = 0 //@TODO search for right one
     var activePolarWindArray = []
     fullActivePolar[activePolar].windData.forEach(item => {
       activePolarWindArray.push(item.trueWindSpeed)
     })
-    //console.log('currentTws: ' + currentTws + ' windIndex: ' + windIndex + ' windArray: ' + activePolarWindArray[windIndex])
+    var windIndex = closestTws(currentTws, activePolarWindArray)
+    app.debug(' currentTws: ' + currentTws + ' windIndex: ' + windIndex + ' windArray: ' + activePolarWindArray[windIndex])
 
     //@TODO: if wind angle not more acute than beatAngle or more obtuse than gybeAngles, interpolate between angles for lower and higher windIndex, and between these
     var polarSpeed, polarSpeedRatio
