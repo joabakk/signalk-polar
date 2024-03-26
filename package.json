@@ -6,7 +6,7 @@
     "uuid": "^3.4.0",
     "better-sqlite3": "^7.6.2",
     "highcharts": "^9.3.3",
-    "express": "^4.18.2",
+    "express": "^4.19.2",
     "lodash": "^4.17.21",
     "snyk": "^1.1087.0"
   },
