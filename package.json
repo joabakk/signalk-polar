@@ -23,10 +23,7 @@
     "shasum": "e6635038b4befdf220613b8a5c454f1c6b2712ef",
     "tarball": "https://registry.npmjs.org/signalk-polar/-/signalk-polar-1.3.1.tgz"
   },
-  "keywords": [
-    "signalk-node-server-plugin",
-    "signalk-webapp"
-  ],
+  "keywords": [],
   "license": "ISC",
   "author": {
     "name": "Joachim Bakke"
@@ -52,6 +49,6 @@
     "appIcon": "./assets/icons/diagram.png",
     "displayName": "signalk-polar"
   },
-  "version": "3.1.0",
+  "version": "3.2.0",
   "snyk": true
 }
